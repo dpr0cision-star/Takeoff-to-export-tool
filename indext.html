@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Horizontal Takeoff</title>
+<style>
+/* Layout: desktop takeoff grid, one row per opening, grouped columns like e-Mullion. Branding matches the AD field card. */
+:root{
+  --brand:#213e20; --cream:#fcf7e4;
+  --ink:#1c3a1c; --ink-soft:#4d6149;
+  --line:#dcd4bc; --line-soft:#f1ead6;
+  --paper:#f8f2e0; --card:#fffcf1;
+  --safety:#2f5a2c; --safety-soft:#e3ecd9;
+  --auto:#7a6a2e; --warn:#b23a26; --warn-soft:#f8e3dc;
+  --mono:"Iosevka","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ink:#f3edd8; --ink-soft:#b8c3ae; --line:#34482f; --line-soft:#1f301f;
+  --paper:#0f1a0f; --card:#162416; --safety:#8fbf7f; --safety-soft:#1f341d;
+  --auto:#d8c27a; --warn:#ff8a70; --warn-soft:#3a1d17; color-scheme:dark; }}
+:root[data-theme="dark"]{
+  --ink:#f3edd8; --ink-soft:#b8c3ae; --line:#34482f; --line-soft:#1f301f;
+  --paper:#0f1a0f; --card:#162416; --safety:#8fbf7f; --safety-soft:#1f341d;
+  --auto:#d8c27a; --warn:#ff8a70; --warn-soft:#3a1d17; color-scheme:dark; }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:13px}
+body{display:flex;flex-direction:column}
+header.top{background:var(--brand);color:var(--cream);border-bottom:3px solid var(--cream);padding:8px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header.top .logo{height:38px;border-radius:4px;display:block}
+header.top h1{font-size:14px;margin:0;letter-spacing:.03em}
+header.top .sub{font-size:11px;color:rgba(252,247,228,.72);margin-top:2px}
+.proj{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.proj select,.proj button,.bar button,.bar label.btn,.ov-bar button{font:700 11.5px var(--mono);letter-spacing:.03em;border-radius:6px;padding:6px 10px;cursor:pointer}
+.proj select{background:var(--cream);color:var(--brand);border:1px solid var(--cream);max-width:260px;font-weight:600}
+.proj button{background:transparent;color:var(--cream);border:1px solid rgba(252,247,228,.45)}
+.proj button:hover{background:rgba(252,247,228,.12)}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--line)}
+.bar button,.bar label.btn{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.bar button:hover,.bar label.btn:hover{border-color:var(--safety)}
+.bar .pri{background:var(--brand);color:var(--cream);border-color:var(--brand)}
+.bar .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.bar input[type=search]{font:12px var(--mono);border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:var(--paper);color:var(--ink);width:160px}
+.bar .opt{font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:4px;cursor:pointer}
+.bar .opt input{accent-color:var(--safety)}
+.grp-toggles{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.grp-toggles button[aria-pressed="false"]{opacity:.5;text-decoration:line-through}
+.status{font-size:11.5px;color:var(--ink-soft);padding:5px 14px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;background:var(--paper)}
+.status b{color:var(--ink);font-variant-numeric:tabular-nums}
+.status .hint{margin-left:auto}
+#wrap{flex:1;overflow:auto;min-height:0}
+table.grid{border-collapse:separate;border-spacing:0;font-size:12px}
+.grid th{position:sticky;background:var(--safety-soft);color:var(--ink);font-size:10.5px;font-weight:700;text-align:left;padding:5px 6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);white-space:nowrap;z-index:2}
+.grid th.noexp{font-style:italic;color:var(--ink-soft)}
+.grid tr.g th{top:0;background:var(--brand);color:var(--cream);letter-spacing:.08em;border-right:2px solid var(--cream);height:24px;font-style:normal}
+.grid tr.h th{top:24px}
+.grid td{padding:0;border-right:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);background:var(--card);height:28px;white-space:nowrap}
+.grid tbody tr:nth-child(even) td{background:var(--paper)}
+.grid tbody tr.on td{background:var(--safety-soft)}
+.grid td input,.grid td select{width:100%;height:28px;border:none;background:transparent;font:12px var(--mono);color:var(--ink);padding:0 6px}
+.grid td select{padding:0 2px;cursor:pointer}
+.grid td input:focus,.grid td select:focus{outline:2px solid var(--safety);outline-offset:-2px;background:var(--card)}
+.grid td input.auto,.grid td select.auto{color:var(--auto);font-style:italic}
+.grid td.sel{text-align:center}
+.grid td.sel input{width:16px;height:16px;margin:0 8px;accent-color:var(--safety)}
+.grid td.act button{font:700 10px var(--mono);border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:4px;padding:3px 7px;margin:0 4px;cursor:pointer}
+.grid td.act button:hover{border-color:var(--safety)}
+.s0{position:sticky;left:0;z-index:3;width:34px;min-width:34px}
+.s1{position:sticky;left:34px;z-index:3}
+.s2{position:sticky;left:84px;z-index:3;box-shadow:2px 0 0 var(--line)}
+.grid th.s0,.grid th.s1,.grid th.s2{z-index:4}
+.empty{padding:40px;text-align:center;color:var(--ink-soft);white-space:normal}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);max-width:640px;width:calc(100% - 32px);padding:0}
+dialog::backdrop{background:rgba(15,26,15,.6)}
+dialog h2{margin:0;padding:10px 14px;background:var(--brand);color:var(--cream);font-size:13px;letter-spacing:.06em}
+dialog .body{padding:14px;display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow:auto}
+.note{font-size:11.5px;color:var(--ink-soft);line-height:1.5}
+.mini{width:100%;border-collapse:collapse}
+.mini th{font-size:10px;text-align:left;padding:4px;color:var(--ink-soft);position:static;background:none;border:none}
+.mini td{padding:2px;border:none;background:transparent}
+.mini td input,.mini td select{width:100%;font:12px var(--mono);color:var(--ink);border:1px solid var(--line);border-radius:4px;height:28px;padding:0 6px;background:var(--paper)}
+dialog .foot{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line)}
+dialog button,.hw button,.ov-bar button{font:700 11.5px var(--mono);border-radius:6px;padding:7px 12px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.pri{background:var(--brand)!important;color:var(--cream)!important;border-color:var(--brand)!important}
+.x{padding:4px 8px!important}
+/* full-screen panels: hardware headings and 3D view */
+.ov{position:fixed;inset:0;z-index:40;background:var(--paper);display:flex;flex-direction:column}
+.ov-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 14px;background:var(--brand);color:var(--cream)}
+.ov-bar b{font-size:13px;letter-spacing:.06em;margin-right:8px}
+.ov-bar .t{font-size:12px;color:rgba(252,247,228,.8)}
+.ov-bar .r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.hw{flex:1;min-height:0;display:grid;grid-template-columns:240px 1fr}
+.hw-list{border-right:1px solid var(--line);overflow:auto;background:var(--card);display:flex;flex-direction:column}
+.hw-list button.h{display:flex;justify-content:space-between;gap:8px;text-align:left;width:100%;border:none;border-bottom:1px solid var(--line-soft);border-radius:0;background:transparent;padding:10px 12px;font:600 12px var(--mono);color:var(--ink);cursor:pointer}
+.hw-list button.h[aria-current="true"]{background:var(--safety-soft);box-shadow:inset 3px 0 0 var(--safety)}
+.hw-list .cnt{font-size:11px;color:var(--ink-soft);font-weight:400;white-space:nowrap}
+.hw-list .cnt.none{color:var(--warn)}
+.hw-list .add{padding:10px 12px;display:flex;gap:6px}
+.hw-list .add input{flex:1;min-width:0;font:12px var(--mono);border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--paper);color:var(--ink)}
+.hw-ed{overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.hw-ed h3{margin:0;font-size:16px;letter-spacing:.04em}
+.hw-ed .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hw-ed textarea{width:100%;min-height:120px;font:12px var(--mono);border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--card);color:var(--ink)}
+.hw-ed .tbl{overflow-x:auto}
+.hw-ed select{font:12px var(--mono);border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--card);color:var(--ink)}
+.v3{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;padding:16px}
+.v3 svg{max-width:100%;height:auto;max-height:calc(100vh - 90px);border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--brand);color:var(--cream);padding:8px 14px;border-radius:8px;font-size:12px;z-index:60}
+button:focus-visible,select:focus-visible,label.btn:focus-within,textarea:focus-visible{outline:2px solid var(--safety);outline-offset:2px}
+@media (max-width:760px){.hw{grid-template-columns:1fr}.hw-list{max-height:35vh;border-right:none;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header class="top">
+  <img class="logo" alt="AD logo" src="data:image/png;base64,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">
+  <div>
+    <h1>HORIZONTAL TAKEOFF</h1>
+    <div class="sub">One row per opening · e-Mullion import · hardware headings · 3D</div>
+  </div>
+  <div class="proj">
+    <select id="projSel" aria-label="Project"></select>
+    <button type="button" id="projNew">+ NEW PROJECT</button>
+    <button type="button" id="projRen">RENAME</button>
+    <button type="button" id="projDel">DELETE</button>
+  </div>
+</header>
+
+<div class="bar">
+  <button type="button" class="pri" id="add">+ ADD OPENING</button>
+  <button type="button" id="dup">COPY SELECTED</button>
+  <button type="button" id="del">DELETE SELECTED</button>
+  <button type="button" id="fill" title="Ctrl+D">FILL DOWN</button>
+  <button type="button" id="sort">SORT BY MARK</button>
+  <input type="search" id="filter" placeholder="Filter openings" aria-label="Filter openings">
+  <span class="sep"></span>
+  <button type="button" class="pri" id="hwBtn">HARDWARE HEADINGS</button>
+  <button type="button" class="pri" id="v3Btn">3D VIEW</button>
+  <span class="sep"></span>
+  <label class="btn">IMPORT<input type="file" id="imp" accept=".txt,.csv,.tsv" hidden></label>
+  <button type="button" class="pri" id="exp">EXPORT E-MULLION .TXT</button>
+  <label class="opt"><input type="checkbox" id="optHead"> Header row</label>
+  <label class="opt"><input type="checkbox" id="optParen"> Sizes in ( )</label>
+  <button type="button" id="mfrBtn">MFR CODES</button>
+  <div class="grp-toggles" id="grpToggles"></div>
+</div>
+<div class="status" id="status"></div>
+<div id="wrap"><table class="grid"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+
+<!-- HARDWARE HEADINGS -->
+<div class="ov" id="hwOv" hidden>
+  <div class="ov-bar"><b>HARDWARE HEADINGS</b><span class="t" id="hwProj"></span>
+    <div class="r"><button type="button" id="hwExp">EXPORT HEADINGS .CSV</button><button type="button" class="pri" id="hwClose" style="background:var(--cream)!important;color:var(--brand)!important">DONE</button></div></div>
+  <div class="hw">
+    <div class="hw-list"><div id="hwList"></div>
+      <div class="add"><input id="hwNew" placeholder="New heading, e.g. HS-2" aria-label="New heading"><button type="button" id="hwNewBtn">ADD</button></div></div>
+    <div class="hw-ed" id="hwEd"></div>
+  </div>
+</div>
+
+<!-- 3D VIEW -->
+<div class="ov" id="v3Ov" hidden>
+  <div class="ov-bar"><b>3D VIEW</b><span class="t" id="v3T"></span>
+    <div class="r"><button type="button" id="v3Prev">&#9664; PREV</button><button type="button" id="v3Next">NEXT &#9654;</button>
+      <button type="button" id="v3Print">PRINT THIS</button><button type="button" id="v3All">PRINT ALL</button>
+      <button type="button" class="pri" id="v3Close" style="background:var(--cream)!important;color:var(--brand)!important">CLOSE</button></div></div>
+  <div class="v3" id="v3Body"></div>
+</div>
+
+<dialog id="mfrDlg">
+  <h2>MANUFACTURER CODES</h2>
+  <div class="body">
+    <div class="note">The grid shows the name, and the export writes the code. Make each code match what your e-Mullion uses (your exports use SPE for Special-Lite). Saved on this computer.</div>
+    <table class="mini"><thead><tr><th>CODE</th><th>NAME</th><th>MAKES</th><th></th></tr></thead><tbody id="mfrBody"></tbody></table>
+    <div><button type="button" id="mfrAdd">+ ADD MANUFACTURER</button></div>
+  </div>
+  <div class="foot"><button type="button" id="mfrReset">RESET TO STARTER LIST</button><button type="button" class="pri" id="mfrDone">DONE</button></div>
+</dialog>
+
+<div id="lists"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== e-Mullion import layout: same as the Schedule to Takeoff export (57 named columns, padded to 61) ===== */
+const EXPORT_COLS = ["QTY","MARK","AREA","INSIDE LOCATION","OUTSIDE LOCATION","OPG MODE","FR WIDTH","FR HEIGHT","DOOR TYPE","DOOR THICK","ARCH DOOR TYPE","DR REMARKS","DR LIST AGENCY","DR FIRE RATING","FR TYPE","ARCH FR TYPE","FR LIST AGENCY","FR FIRE RATING","FR REMARKS","GEN NOTES","HEADING","DR STC","DR MATL/FACE","DR FINISH","FR CONSTR","FR MATL","FR FINISH","GLASS THICKNESS","BLDG","FLOOR","WALL TYPE","HAND","DR MFGR","DR SERIES","DR GAUGE","FR MFGR","FR SERIES","FR GAUGE","WALL THICK","JAMB DEPTH","HEAD DETAIL","JAMB DETAIL","SILL DETAIL","PLAN PAGE","LEFT BASE ANCHOR","RIGHT BASE ANCHOR","LEFT JAMB ANCHOR","RIGHT JAMB ANCHOR","HEAD ANCHOR","FR PREPPING","DR PREPPING","MFG DR TYPE ACT","MFG DR TYPE INACT","FR STC","INT/EXT","DR UNDERCUT","DR CORE"];
+// the import skips a position after DR FINISH and three after HEAD DETAIL, so blanks go there
+const padRow = (r,f)=>[...r.slice(0,24),f(1),...r.slice(24,41),f(2),f(3),f(4),...r.slice(41)];
+const PAREN_COLS = new Set(["FR WIDTH","FR HEIGHT","DR UNDERCUT"]);
+const SIZE_COLS = new Set(["FR WIDTH","FR HEIGHT"]);
+/* full e-Mullion openings export header (used to read e-Mullion's own .csv exports) */
+const EM_HEADERS = ["QTY","ACT DR TEMPLATE","DRAW/FR TEMPLATE","MARK","ARCH MARK","BLDG","AREA","FR MFGR","OPG MODE","OUTSIDE LOCATION","INSIDE LOCATION","HAND","FR WIDTH","FR HEIGHT","HEAD FACE","DOOR THICK","HEADING","FR TYPE","FR LIST AGENCY","FR FIRE RATING","ARCH FR TYPE","FR SERIES","FR GAUGE","FR CONSTR","FR MATL","FR FINISH","JAMB DEPTH","LEFT JAMB ANCHOR","RIGHT JAMB ANCHOR","WALL TYPE","HEAD DETAIL","JAMB DETAIL","SILL DETAIL","DOOR TYPE","DR MFGR","MFG DR TYPE ACT","ARCH DOOR TYPE","DR UNDERCUT","DR SERIES","DR GAUGE","DR CORE","DR WIDTH ACT","DR WIDTH INACT","DR HEIGHT","DR MATL/FACE","WD VENEER MATCH","DR EDGE","DR FINISH","DR LIST AGENCY","DR FIRE RATING","DR STC","DR CAPS","FR STC","FR REMARKS","DR REMARKS","INT/EXT","FLOOR"];
+
+/* ===== dropdown lists ===== */
+const L = {
+  mode:[["SGL","SGL - single"],["PR","PR - pair"],["DE","DE - double egress"],["UPR","UPR - unequal pair"]],
+  hand:["LH","RH","LHR","RHR","LHRA","RHRA","LHA","RHA"],
+  intext:["INT","EXT"], face:["2","4"], thick:["1 3/4","1 3/8","2","2 1/4"],
+  frGauge:["18","16","14","12"], drGauge:["20","18","16","14"],
+  constr:[["KD","KD - knock down"],["SW","SW - setup welded"],["FW","FW - full welded"],["FFW","FFW - face welded"]],
+  agency:["UL","WH","FM"], fire:["20 MIN","45 MIN","60 MIN","90 MIN","3 HR"],
+  matl:[["CRS","CRS - cold rolled"],["A60","A60 - galvannealed"],["G90","G90 - galvanized"],["SS","SS - stainless"],["ALUM","ALUM - aluminum"],["FRP","FRP"],["WD","WD - wood"]],
+  finish:["PRIME","FACTORY PAINT","BONE WHITE","WHITE","BLACK","DARK BRONZE","CLEAR ANODIZED","STAIN","PREFINISH","FIELD PAINT"],
+  frType:[["HMF","HMF - hollow metal frame"],["FRPF","FRPF - FRP frame"],["ALUM","ALUM - aluminum frame"],["WDF","WDF - wood frame"]],
+  frSeries:[["KD","KD - knock down"],["C","C - KD drywall"],["CM","CM - welded drywall"],["M","M - masonry"]],
+  drType:[["HMD","HMD - hollow metal door"],["WD","WD - wood door"],["FRPD","FRPD - FRP door"],["ALUM","ALUM - aluminum door"]],
+  drSeries:[["707","707 - Curries flush"],["727","727 - Curries"],["747","747 - Curries"],["777E","777E - Curries embossed"],["717","717 - Curries"]],
+  core:[["PU","PU - polyurethane"],["PS","PS - polystyrene"],["HC","HC - honeycomb"],["SE","SE - steel stiffened"],["TE","TE - temp rise"],["MIN","MIN - mineral"],["SCLC","SCLC - structural composite lumber"],["PC","PC - particleboard"],["SLC","SLC - staved lumber"]],
+  matlFace:[["CRS","CRS"],["A60","A60"],["SS","SS"],["FRP","FRP"],["WD-RO","WD - red oak"],["WD-WM","WD - white maple"],["WD-WB","WD - white birch"],["HPL","HPL - plastic laminate"],["MDO","MDO - paint grade"]],
+  veneer:["BOOK","SLIP","RANDOM","BALANCE","CENTER"],
+  edge:[["BEV","BEV - beveled"],["SQ","SQ - square"],["LSE","LSE - lock seam edge"],["CWE","CWE - continuous weld edge"],["VSE","VSE - visible seam edge"]],
+  caps:[["FT","FT - flush top"],["FTB","FTB - flush top & bottom"],["IT","IT - inverted top"],["ITB","ITB - inverted top & bottom"]],
+  anchor:[["SA","SA - stud anchor"],["WA","WA - wire masonry"],["TS","TS - T-strap masonry"],["EWA","EWA - existing wall"],["CA","CA - compression anchor"],["ZC","ZC - Z clip"]],
+  baseAnchor:[["BA","BA - base anchor"],["ABA","ABA - adjustable base anchor"],["NONE","NONE"]],
+  headAnchor:[["NONE","NONE"],["HA","HA - head anchor"],["SA","SA - stud anchor"]],
+  jamb:["4 7/8","5 3/4","5 7/8","6 3/4","6 7/8","7 1/4","7 3/8","7 7/8","8 3/4","9 1/4"],
+  stc:["STC 33","STC 40","STC 45","STC 50"],
+  glass:["1/4","3/8","1/2","5/8","1","1 1/4"],
+  frPrep:[["PIONEER STD","PIONEER STD - Pioneer standard locations"],["CURRIES STD","CURRIES STD"],["CECO STD","CECO STD"],["STEELCRAFT STD","STEELCRAFT STD"],["REPUBLIC STD","REPUBLIC STD"],["ANSI/SDI STD","ANSI/SDI STD"],["4-1/2 HINGE","4-1/2 STD WT HINGE"],["4-1/2 HW HINGE","4-1/2 HEAVY WT HINGE"],["5 HW HINGE","5 HEAVY WT HINGE"],["CONT HINGE","CONT HINGE - no hinge prep"],["ASA STRIKE","ASA STRIKE"],["ELEC STRIKE","ELEC STRIKE"],["DPS","DPS - door position switch"],["EPT","EPT - power transfer"],["CLOSER REINF","CLOSER REINF"],["OH STOP REINF","OH STOP REINF"],["SILENCERS","SILENCERS"],["NONE","NONE - blank"]],
+  drPrep:[["PIONEER STD","PIONEER STD - Pioneer standard locations"],["CURRIES STD","CURRIES STD"],["CECO STD","CECO STD"],["STEELCRAFT STD","STEELCRAFT STD"],["REPUBLIC STD","REPUBLIC STD"],["ANSI/SDI STD","ANSI/SDI STD"],["161 CYL","161 CYL - cylindrical lock"],["86 MORTISE","86 MORTISE - mortise lock"],["RIM EXIT","RIM EXIT"],["SVR EXIT","SVR EXIT - surface vert rod"],["CVR EXIT","CVR EXIT - concealed vert rod"],["MORTISE EXIT","MORTISE EXIT"],["DEADLOCK","DEADLOCK"],["FLUSH BOLTS","FLUSH BOLTS"],["CLOSER REINF","CLOSER REINF"],["EPT","EPT - power transfer"],["ELEC LOCK","ELEC LOCK - wire raceway"],["CONT HINGE","CONT HINGE"],["NONE","NONE - blank"]],
+  qty:["1","2","3","4","5","6","8","10","12"],
+  floor:["B","C","1","2","3","4","5","6","7","8","R"],
+  liteSize:[["4x25","4x25 - narrow lite"],["5x20","5x20"],["10x10","10x10 - vision"],["24x30","24x30"],["22x64","22x64 - full lite"]],
+  louverSize:["12x12","18x18","24x12","24x18","24x24"],
+  slw:["12","14","16","18","24"], trh:["12","14","18","24"],
+  frW:["2-6","2-8","2-10","3-0","3-4","3-6","4-0","5-0","5-4","6-0","6-8","7-0","8-0"],
+  drW:["2-6","2-8","2-10","3-0","3-4","3-6","4-0"],
+  hgt:["6-8","7-0","7-2","7-10","8-0","9-0","10-0"],
+  wallThick:["3 3/4","4 7/8","5 5/8","6 1/8","7 1/4","7 5/8","8 1/2","11 5/8"],
+  undercut:["3/4","1/2","5/8","1","1 1/4"],
+  drTpl:[["F","F - flush"],["N","N - narrow lite"],["V","V - vision lite"],["HG","HG - half glass"],["FG","FG - full glass"],["L","L - louver"],["NL","NL - narrow lite + louver"],["VL","VL - vision lite + louver"]],
+  frTpl:[["STD","STD - door only"],["SL-L","SL-L - sidelite left"],["SL-R","SL-R - sidelite right"],["SL-2","SL-2 - sidelites both"],["TR","TR - transom"],["SL-L+TR","SL-L+TR"],["SL-R+TR","SL-R+TR"],["SL-2+TR","SL-2+TR"]],
+  hwItem:["HINGES","CONTINUOUS HINGE","LOCKSET","PASSAGE SET","PRIVACY SET","EXIT DEVICE","EXIT DEVICE - VERT ROD","DUMMY TRIM","CYLINDER","CLOSER","OH STOP","WALL STOP","FLOOR STOP","KICK PLATE","PUSH PLATE","PULL","FLUSH BOLTS","COORDINATOR","ASTRAGAL","REMOVABLE MULLION","THRESHOLD","GASKETING","SWEEP","DRIP CAP","SILENCERS","ELECTRIC STRIKE","POWER TRANSFER","DOOR POSITION SWITCH","CARD READER"],
+  hwMfr:["IVE - Ives","SCH - Schlage","VON - Von Duprin","LCN - LCN","FAL - Falcon","ROC - Rockwood","PEM - Pemko","MCK - McKinney","HAG - Hager","STA - Stanley","SAR - Sargent","COR - Corbin Russwin","YAL - Yale","NOR - Norton","ACC - Accentra","ZER - Zero","GLY - Glynn-Johnson"],
+  hwFin:["626","628","630","652","689","613","605","622","690","710","US26D","US32D","US10B","US3","AL","DKB"],
+  /* wall type -> wall thickness (inches) used for auto jamb depth (wall + 1/2" backbend each side) */
+  wall:[["4 7/8 DW","3-5/8 stud + 5/8 GWB ea side",4.875],["6 1/8 DW","3-5/8 stud + 2 layers 5/8 ea side",6.125],["3 3/4 DW","2-1/2 stud + 5/8 GWB ea side",3.75],["7 1/4 DW","6 stud + 5/8 GWB ea side",7.25],["8 1/2 DW","6 stud + 2 layers 5/8 ea side",8.5],["6 CMU","6\" CMU (5-5/8 wall)",5.625],["8 CMU","8\" CMU (7-5/8 wall)",7.625],["12 CMU","12\" CMU (11-5/8 wall)",11.625]]
+};
+L.wallList = L.wall.map(w=>[w[0],w[1]]);
+const SERIES_BY_MFR = {
+  FR:{CUR:L.frSeries, SPE:[["AF-150","AF-150 - FRP frame"],["SL-400","SL-400 - aluminum frame"]], VTI:[["WDF","WDF - wood frame"]]},
+  DR:{CUR:L.drSeries, SPE:[["AF-100","AF-100 - FRP flush"],["SL-17","SL-17 - FRP"],["SL-15","SL-15 - aluminum"],["SL-14","SL-14 - aluminum"]], VTI:[["HERITAGE","HERITAGE - veneer"],["PAINT GRADE","PAINT GRADE"],["HPL","HPL - laminate"]]}};
+/* type that each manufacturer kind defaults to */
+const TYPE_BY_KIND = {FR:{HM:"HMF",WD:"WDF","FRP/ALUM":"FRPF"}, DR:{HM:"HMD",WD:"WD","FRP/ALUM":"FRPD"}};
+const STARTER_MFRS = [
+  {code:"CUR",name:"Curries",kind:"HM"},{code:"PIO",name:"Pioneer",kind:"HM"},{code:"CEC",name:"Ceco",kind:"HM"},
+  {code:"STC",name:"Steelcraft",kind:"HM"},{code:"REP",name:"Republic",kind:"HM"},{code:"MES",name:"Mesker",kind:"HM"},
+  {code:"DEA",name:"Deansteel",kind:"HM"},{code:"AMW",name:"Amweld",kind:"HM"},
+  {code:"VTI",name:"VT Industries",kind:"WD"},{code:"MSH",name:"Marshfield",kind:"WD"},{code:"MAS",name:"Masonite Architectural",kind:"WD"},
+  {code:"OSH",name:"Oshkosh",kind:"WD"},{code:"EGG",name:"Eggers",kind:"WD"},{code:"LAM",name:"Lambton",kind:"WD"},
+  {code:"SPE",name:"Special-Lite",kind:"FRP/ALUM"},{code:"CHP",name:"Chem-Pruf",kind:"FRP/ALUM"},{code:"KAW",name:"Kawneer",kind:"FRP/ALUM"}
+];
+
+/* ===== grid columns: [header, group, width, kind, list]
+   kinds: text | num | size (ft-in) | inch (fraction) | sel (strict) | combo (dropdown + typing) | mfr ===== */
+const COLS = [
+  ["QTY","OPENING",48,"num","qty"],["MARK","OPENING",80,"text"],["ARCH MARK","OPENING",80,"text"],["BLDG","OPENING",110,"text"],["FLOOR","OPENING",56,"text","floor"],["AREA","OPENING",90,"text"],
+  ["OUTSIDE LOCATION","OPENING",140,"text"],["INSIDE LOCATION","OPENING",140,"text"],["INT/EXT","OPENING",64,"combo","intext"],
+  ["OPG MODE","OPENING",120,"combo","mode"],["HAND","OPENING",66,"combo","hand"],["HEADING","OPENING",80,"text"],["PLAN PAGE","OPENING",70,"text"],
+  ["ACT DR TEMPLATE","ELEVATION",120,"combo","drTpl"],["DRAW/FR TEMPLATE","ELEVATION",130,"combo","frTpl"],["LITE SIZE","ELEVATION",80,"text","liteSize"],["LOUVER SIZE","ELEVATION",86,"text","louverSize"],["SIDELITE W","ELEVATION",80,"inch","slw"],["TRANSOM H","ELEVATION",80,"inch","trh"],
+  ["FR MFGR","FRAME",130,"mfr"],["FR TYPE","FRAME",120,"combo","frType"],["ARCH FR TYPE","FRAME",80,"text"],["FR SERIES","FRAME",90,"combo","frSeries"],
+  ["FR GAUGE","FRAME",64,"combo","frGauge"],["FR CONSTR","FRAME",120,"combo","constr"],["FR MATL","FRAME",120,"combo","matl"],["FR FINISH","FRAME",110,"combo","finish"],
+  ["FR WIDTH","FRAME",88,"size","frW"],["FR HEIGHT","FRAME",88,"size","hgt"],["HEAD FACE","FRAME",60,"combo","face"],["DOOR THICK","FRAME",72,"combo","thick"],
+  ["WALL TYPE","FRAME",110,"combo","wallList"],["WALL THICK","FRAME",76,"inch","wallThick"],["JAMB DEPTH","FRAME",80,"combo","jamb"],
+  ["LEFT JAMB ANCHOR","FRAME",120,"combo","anchor"],["RIGHT JAMB ANCHOR","FRAME",120,"combo","anchor"],["HEAD ANCHOR","FRAME",100,"combo","headAnchor"],
+  ["LEFT BASE ANCHOR","FRAME",110,"combo","baseAnchor"],["RIGHT BASE ANCHOR","FRAME",110,"combo","baseAnchor"],
+  ["FR LIST AGENCY","FRAME",70,"combo","agency"],["FR FIRE RATING","FRAME",86,"combo","fire"],["FR STC","FRAME",76,"combo","stc"],["FR PREPPING","FRAME",130,"combo","frPrep"],
+  ["HEAD DETAIL","FRAME",80,"text"],["JAMB DETAIL","FRAME",80,"text"],["SILL DETAIL","FRAME",80,"text"],
+  ["DOOR TYPE","DOOR",120,"combo","drType"],["DR MFGR","DOOR",130,"mfr"],["MFG DR TYPE ACT","DOOR",90,"text"],["MFG DR TYPE INACT","DOOR",96,"text"],["ARCH DOOR TYPE","DOOR",80,"text"],
+  ["DR SERIES","DOOR",90,"combo","drSeries"],["DR GAUGE","DOOR",64,"combo","drGauge"],["DR CORE","DOOR",110,"combo","core"],
+  ["DR WIDTH ACT","DOOR",88,"size","drW"],["DR WIDTH INACT","DOOR",88,"size","drW"],["DR HEIGHT","DOOR",88,"size","hgt"],["DR UNDERCUT","DOOR",70,"inch","undercut"],
+  ["DR MATL/FACE","DOOR",110,"combo","matlFace"],["WD VENEER MATCH","DOOR",90,"combo","veneer"],["DR EDGE","DOOR",110,"combo","edge"],["DR FINISH","DOOR",110,"combo","finish"],
+  ["GLASS THICKNESS","DOOR",80,"combo","glass"],["DR LIST AGENCY","DOOR",70,"combo","agency"],["DR FIRE RATING","DOOR",86,"combo","fire"],["DR STC","DOOR",76,"combo","stc"],["DR CAPS","DOOR",110,"combo","caps"],["DR PREPPING","DOOR",130,"combo","drPrep"],
+  ["FR REMARKS","REMARKS",180,"text"],["DR REMARKS","REMARKS",180,"text"],["GEN NOTES","REMARKS",180,"text"]
+];
+const GROUPS = ["OPENING","ELEVATION","FRAME","DOOR","REMARKS"];
+const EXPORTED = new Set(EXPORT_COLS);
+
+/* ===== storage ===== */
+const KEY = "ad-horizontal-takeoff-v1";
+let S = load();
+function load(){
+  let s=null; try{ s = JSON.parse(localStorage.getItem(KEY)||"null"); }catch(e){}
+  if(!s || !s.projects){ const id=uid(); s={projects:{[id]:{name:"New project",rows:[],hw:{}}},cur:id,mfrs:STARTER_MFRS.slice(),hide:{}}; }
+  if(!s.mfrs) s.mfrs=STARTER_MFRS.slice(); if(!s.hide) s.hide={}; if(!s.opts) s.opts={head:true,paren:false};
+  Object.values(s.projects).forEach(p=>{ if(!p.hw) p.hw={}; });
+  if(!s.projects[s.cur]) s.cur=Object.keys(s.projects)[0];
+  return s;
+}
+let saveT; function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast("Couldn't save. Browser storage may be full or blocked."); } },250); }
+function uid(){ return "o"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+const P = ()=>S.projects[S.cur];
+let SEL = new Set(), FILTER = "", lastFocus = null;
+
+/* ===== size helpers ===== */
+const $ = id=>document.getElementById(id);
+const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function fracToNum(t){ t=String(t??"").trim().replace(/["”]/g,""); if(!t) return null; let m=t.match(/^(\d+)\s+(\d+)\/(\d+)$/); if(m) return +m[1]+ m[2]/m[3];
+  m=t.match(/^(\d+)\/(\d+)$/); if(m) return m[1]/m[2]; m=t.match(/^(\d+(?:\.\d+)?)$/); if(m) return +m[1];
+  m=t.match(/^(\d+)-(\d+)\/(\d+)$/); if(m) return +m[1]+m[2]/m[3]; return null; }
+function numToFrac(n){ if(n==null||isNaN(n)) return ""; const w=Math.floor(n+1e-9); let s=Math.round((n-w)*16);
+  if(s===16) return String(w+1); if(!s) return String(w); let d=16; while(s%2===0){s/=2;d/=2;} return (w? w+" ":"")+s+"/"+d; }
+/* accepts 36 · 36 1/2 · 3-0 · 3-0.5 · 3'0 · 3'-0" · (3-0) · 3-0 1/2 → inches */
+function parseSize(v){
+  let t=String(v||"").trim().replace(/[()]/g,"").replace(/[’′]/g,"'").replace(/[”″]/g,'"').replace(/"/g,"").trim();
+  if(!t) return null;
+  let m=t.match(/^(\d+)\s*'\s*-?\s*(.*)$/) || t.match(/^(\d+)-(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?)$/);
+  if(m){ const inch = m[2]?fracToNum(m[2]):0; return inch==null?null: +m[1]*12+inch; }
+  return fracToNum(t);
+}
+function fmtSize(n){ if(n==null) return ""; const ft=Math.floor((n+1e-9)/12); let t=numToFrac(n-ft*12); if(/^\d+\/\d+$/.test(t)) t="0 "+t; if(t==="12") return (ft+1)+"-0"; return ft+"-"+t; }
+/* export format, same as the Schedule to Takeoff tool: 3-0, 6-0, 3-0.5 */
+function ftInDec(n){ n=Number(n); if(!n||!isFinite(n)) return ""; const f=Math.floor(n/12); return f+"-"+(+(n-f*12).toFixed(3)); }
+const elIn = n => numToFrac(n)+'"';
+
+/* ===== datalists ===== */
+function buildLists(){
+  $("lists").innerHTML=Object.keys(L).filter(k=>k!=="wall").map(k=>`<datalist id="dl_${k}">${L[k].map(o=>Array.isArray(o)?`<option value="${esc(o[0])}">${esc(o[1])}</option>`:`<option value="${esc(o)}"></option>`).join("")}</datalist>`).join("");
+}
+
+/* ===== auto-fill rules (only fill a cell that is empty or was auto-filled) ===== */
+function setAuto(r,k,v){ r._auto=r._auto||{}; if(r[k]===undefined||r[k]===""||r._auto[k]){ if(v===""||v==null){ if(r._auto[k]){ r[k]=""; delete r._auto[k]; } } else { r[k]=v; r._auto[k]=true; } } }
+function applyAuto(r,changed){
+  const mode=r["OPG MODE"]||"SGL", fw=parseSize(r["FR WIDTH"]), fh=parseSize(r["FR HEIGHT"]);
+  if(["FR WIDTH","OPG MODE"].includes(changed) && fw!=null){
+    if(mode==="SGL"){ setAuto(r,"DR WIDTH ACT",fmtSize(fw)); setAuto(r,"DR WIDTH INACT",""); }
+    else if(mode==="PR"||mode==="DE"){ setAuto(r,"DR WIDTH ACT",fmtSize(fw/2)); setAuto(r,"DR WIDTH INACT",fmtSize(fw/2)); }
+  }
+  if(changed==="FR HEIGHT" && fh!=null) setAuto(r,"DR HEIGHT",fmtSize(fh));
+  if(changed==="WALL TYPE"){ const w=L.wall.find(x=>x[0]===r["WALL TYPE"]); if(w){ setAuto(r,"WALL THICK",numToFrac(w[2])); setAuto(r,"JAMB DEPTH",numToFrac(Math.ceil(w[2]*8-1e-9)/8+1)); } }
+  if(changed==="WALL THICK"){ const n=fracToNum(r["WALL THICK"]); if(n!=null) setAuto(r,"JAMB DEPTH",numToFrac(Math.ceil(n*8-1e-9)/8+1)); }
+  if(changed==="MARK") setAuto(r,"ARCH MARK",r["MARK"]);
+  if(changed==="FR MFGR"||changed==="DR MFGR"){ const side=changed==="FR MFGR"?"FR":"DR", m=S.mfrs.find(x=>x.code===r[changed]);
+    const t=m&&TYPE_BY_KIND[side][m.kind]; setAuto(r, side==="FR"?"FR TYPE":"DOOR TYPE", t||"");
+    const sk=side+" SERIES"===("FR SERIES")?"FR SERIES":"DR SERIES", list=SERIES_BY_MFR[side][r[changed]];
+    if(r._auto&&r._auto[sk]&&list&&!list.some(o=>o[0]===r[sk])) setAuto(r,sk,""); }
+  if(changed==="FR FIRE RATING") setAuto(r,"DR FIRE RATING",r["FR FIRE RATING"]);
+  if(changed==="FR LIST AGENCY") setAuto(r,"DR LIST AGENCY",r["FR LIST AGENCY"]);
+}
+
+/* ===== grid ===== */
+function visCols(){ return COLS.filter(c=>!S.hide[c[1]]); }
+function cell(r,c,i){
+  const [k,,w,kind,list]=c, v=r[k]??"", auto=r._auto&&r._auto[k]?"auto":"";
+  const stick=i===0?' class="s1"':i===1?' class="s2"':"";
+  const a=`data-k="${esc(k)}" aria-label="${esc(k)}"`;
+  const dl=` list="${listId(r,k)}"`;
+  const ph=kind==="size"?(k.includes("HEIGHT")?' placeholder="7-0"':' placeholder="3-0"'):k==="LITE SIZE"?' placeholder="4x25"':k==="LOUVER SIZE"?' placeholder="24x24"':"";
+  const im=kind==="num"?' inputmode="numeric"':"";
+  return `<td${stick}><input ${a} class="${auto}" value="${esc(v)}"${dl}${ph}${im} autocomplete="off"></td>`;
+}
+/* dropdown lists: the column's common values plus anything already typed in that column */
+const COL_IDX = Object.fromEntries(COLS.map((c,i)=>[c[0],i]));
+function listId(r,k){
+  if(k==="FR SERIES"||k==="DR SERIES"){ const side=k==="FR SERIES"?"FR":"DR", m=r[side==="FR"?"FR MFGR":"DR MFGR"]; return `dls_${side}_${SERIES_BY_MFR[side][m]?m:"ALL"}`; }
+  return "dlc"+COL_IDX[k];
+}
+function colOpts(c){
+  const [k,,,kind,list]=c;
+  if(kind==="mfr") return S.mfrs.map(m=>[m.code,m.name]);
+  if(k==="HEADING") return Object.keys(P().hw).map(h=>[h,(P().hw[h]||[]).length+" items"]);
+  return (L[list]||[]).map(o=>Array.isArray(o)?o:[o,""]);
+}
+function optHtml(opts){ const seen=new Set(); return opts.filter(o=>{ if(!o[0]||seen.has(o[0])) return false; seen.add(o[0]); return true; }).map(o=>`<option value="${esc(o[0])}"${o[1]?` label="${esc(o[1])}"`:""}></option>`).join(""); }
+function buildColLists(only){
+  const rows=P().rows, out=[];
+  COLS.forEach((c,i)=>{ if(only && c[0]!==only) return;
+    const used=[...new Set(rows.map(r=>String(r[c[0]]??"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(v=>[v,""]);
+    const html=optHtml([...colOpts(c),...used]); let dl=$("dlc"+i);
+    if(!dl){ dl=document.createElement("datalist"); dl.id="dlc"+i; $("lists").appendChild(dl); }
+    if(dl.innerHTML!==html) dl.innerHTML=html; });
+  if(!only || /SERIES|MFGR/.test(only)) ["FR","DR"].forEach(side=>{ const base=side==="FR"?L.frSeries:L.drSeries;
+    const all={ALL:[...base,...Object.values(SERIES_BY_MFR[side]).flat()],...SERIES_BY_MFR[side]};
+    Object.entries(all).forEach(([m,opts])=>{ const id=`dls_${side}_${m}`; let dl=$(id); if(!dl){ dl=document.createElement("datalist"); dl.id=id; $("lists").appendChild(dl); } dl.innerHTML=optHtml(opts); }); });
+}
+function render(){
+  buildColLists();
+  const cols=visCols(), rows=P().rows, f=FILTER.toLowerCase();
+  const shown=rows.filter(r=>!f||COLS.some(c=>String(r[c[0]]??"").toLowerCase().includes(f)));
+  const groups=[]; cols.forEach(c=>{ const l=groups[groups.length-1]; if(l&&l[0]===c[1]) l[1]++; else groups.push([c[1],1]); });
+  const allOn=shown.length&&shown.every(r=>SEL.has(r._id));
+  $("thead").innerHTML=`<tr class="g"><th class="s0" rowspan="2"><input type="checkbox" id="selAll" aria-label="Select all"${allOn?" checked":""}></th>${groups.map(g=>`<th colspan="${g[1]}">${g[0]}</th>`).join("")}<th rowspan="2"></th></tr>`+
+    `<tr class="h">${cols.map((c,i)=>{ const ne=!EXPORTED.has(c[0]); return `<th style="min-width:${c[2]}px" class="${i===0?"s1":i===1?"s2":""}${ne?" noexp":""}"${ne?' title="Not part of the e-Mullion import. Used here for the 3D view and your notes."':""}>${esc(c[0])}</th>`; }).join("")}</tr>`;
+  $("tbody").innerHTML=shown.length?shown.map(r=>`<tr data-id="${r._id}" class="${SEL.has(r._id)?"on":""}"><td class="s0 sel"><input type="checkbox" data-sel${SEL.has(r._id)?" checked":""} aria-label="Select row"></td>${cols.map((c,i)=>cell(r,c,i)).join("")}<td class="act"><button type="button" data-v3>3D</button></td></tr>`).join("")
+    :`<tr><td colspan="${cols.length+2}" class="empty">${rows.length?"No openings match the filter.":"No openings yet. Click <b>+ ADD OPENING</b>, or import a takeoff .txt or e-Mullion export to start."}</td></tr>`;
+  status();
+  const th1=document.querySelector("tr.h th.s1"); if(th1){ const w=th1.offsetWidth; document.querySelectorAll(".s2").forEach(el=>el.style.left=(34+w)+"px"); }
+}
+function status(){
+  const p=P(), rows=p.rows, q=r=>Math.max(0,parseInt(r.QTY)||0);
+  const tot=rows.reduce((s,r)=>s+q(r),0), pairs=rows.filter(r=>["PR","DE","UPR"].includes(r["OPG MODE"])).reduce((s,r)=>s+q(r),0);
+  const rated=rows.filter(r=>r["FR FIRE RATING"]||r["DR FIRE RATING"]).reduce((s,r)=>s+q(r),0);
+  const missing=rows.filter(r=>!r.MARK||!r["FR WIDTH"]||!r["FR HEIGHT"]).length;
+  const heads=[...new Set(rows.map(r=>(r.HEADING||"").trim()).filter(Boolean))], noHw=heads.filter(h=>!(p.hw[h]&&p.hw[h].length)).length;
+  $("status").innerHTML=`<span>Rows <b>${rows.length}</b></span><span>Openings <b>${tot}</b></span><span>Singles <b>${tot-pairs}</b></span><span>Pairs <b>${pairs}</b></span><span>Door leaves <b>${tot+pairs}</b></span><span>Rated <b>${rated}</b></span><span>Headings <b>${heads.length}</b>${noHw?` <span style="color:var(--warn)">(${noHw} with no hardware)</span>`:""}</span>${missing?`<span style="color:var(--warn)">Missing mark or size <b style="color:var(--warn)">${missing}</b></span>`:""}<span class="hint">Click a cell for its list or type · italic = auto-filled · italic header = not exported · Enter moves down · Ctrl+D fills down</span>`;
+}
+function renderProjects(){ $("projSel").innerHTML=Object.entries(S.projects).map(([id,p])=>`<option value="${id}"${id===S.cur?" selected":""}>${esc(p.name)} (${p.rows.length})</option>`).join(""); }
+function renderToggles(){ $("grpToggles").innerHTML=GROUPS.map(g=>`<button type="button" data-g="${g}" aria-pressed="${!S.hide[g]}">${g}</button>`).join(""); }
+
+/* ===== editing ===== */
+function rowById(id){ return P().rows.find(r=>r._id===id); }
+function newRow(){ return {_id:uid(),_auto:{"HEAD FACE":true,"DOOR THICK":true,"FR GAUGE":true,"DR GAUGE":true,"INT/EXT":true,"ACT DR TEMPLATE":true,"DRAW/FR TEMPLATE":true,"FR PREPPING":true,"DR PREPPING":true},QTY:"1","FR PREPPING":"PIONEER STD","DR PREPPING":"PIONEER STD","OPG MODE":"SGL","HEAD FACE":"2","DOOR THICK":"1 3/4","FR GAUGE":"16","DR GAUGE":"18","INT/EXT":"INT","ACT DR TEMPLATE":"F","DRAW/FR TEMPLATE":"STD"}; }
+function commit(el){
+  const tr=el.closest("tr"); if(!tr) return; const r=rowById(tr.dataset.id), k=el.dataset.k; if(!r||!k) return;
+  const col=COLS.find(c=>c[0]===k); let v=el.value.trim();
+  if(col[3]==="size"){ const n=parseSize(v); if(v && n!=null) v=fmtSize(n); }
+  if(col[3]==="inch"){ const n=fracToNum(v.replace(/[()]/g,"")); if(v && n!=null) v=numToFrac(n); }
+  if(!["OUTSIDE LOCATION","INSIDE LOCATION","FR REMARKS","DR REMARKS","GEN NOTES"].includes(k)) v=v.toUpperCase();
+  if(el.value!==v){ el.value=v; el.dataset.prev=v; }
+  if(r[k]===v) return;
+  r[k]=v; if(r._auto) delete r._auto[k];
+  applyAuto(r,k); save(); refreshRow(tr,r); buildColLists(k); if(/MFGR/.test(k)) refreshRow(tr,r); status(); renderProjects();
+}
+function refreshRow(tr,r){
+  tr.querySelectorAll("[data-k]").forEach(el=>{ const key=el.dataset.k, val=r[key]??"";
+    if(document.activeElement!==el && el.value!==val) el.value=val;
+    if(el.list!==undefined){ const id=listId(r,key); if(el.getAttribute("list")!==id) el.setAttribute("list",id); }
+    el.classList.toggle("auto",!!(r._auto&&r._auto[key])); });
+}
+$("tbody").addEventListener("change",e=>{ if(e.target.matches("[data-sel]")){ const id=e.target.closest("tr").dataset.id; e.target.checked?SEL.add(id):SEL.delete(id); e.target.closest("tr").classList.toggle("on",e.target.checked); } });
+/* on entering a cell its value moves to the placeholder so the dropdown shows every option; leaving without typing puts it back */
+$("tbody").addEventListener("focusin",e=>{ const el=e.target; if(!el.dataset.k) return; lastFocus={id:el.closest("tr").dataset.id,k:el.dataset.k};
+  if(el.dataset.ph===undefined) el.dataset.ph=el.getAttribute("placeholder")||""; el.dataset.prev=el.value; if(el.value){ el.placeholder=el.value; el.value=""; } });
+$("tbody").addEventListener("focusout",e=>{ const el=e.target; if(!el.dataset.k) return; finish(el); el.placeholder=el.dataset.ph||""; });
+function finish(el){ if(el.value==="" && el.dataset.prev) el.value=el.dataset.prev; el.dataset.prev=el.value; commit(el); }
+$("tbody").addEventListener("click",e=>{ if(e.target.matches("[data-v3]")) open3D(e.target.closest("tr").dataset.id); });
+$("tbody").addEventListener("keydown",e=>{
+  const el=e.target; if(!el.dataset||!el.dataset.k) return;
+  if((e.key==="Delete"||e.key==="Backspace") && el.value===""){ el.dataset.prev=""; el.placeholder=""; }
+  if(e.key==="Escape"){ el.value=""; el.blur(); }
+  if(e.key==="Enter"){ e.preventDefault(); const tr=el.closest("tr"), k=el.dataset.k; finish(el);
+    const n=e.shiftKey?tr.previousElementSibling:tr.nextElementSibling;
+    if(n){ const t=n.querySelector(`[data-k="${CSS.escape(k)}"]`); if(t){ t.focus(); t.select?.(); } } }
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="d"){ e.preventDefault(); finish(el); fillDown(); }
+});
+$("thead").addEventListener("change",e=>{ if(e.target.id!=="selAll") return; const ids=[...document.querySelectorAll("#tbody tr[data-id]")].map(t=>t.dataset.id); ids.forEach(id=>e.target.checked?SEL.add(id):SEL.delete(id)); render(); });
+
+function fillDown(){
+  if(!lastFocus){ toast("Click a cell first, then Fill down."); return; }
+  const src=rowById(lastFocus.id); if(!src) return; const k=lastFocus.k, v=src[k]??"";
+  const ids=[...document.querySelectorAll("#tbody tr[data-id]")].map(t=>t.dataset.id), start=ids.indexOf(src._id);
+  const targets=SEL.size? ids.filter(id=>SEL.has(id)&&id!==src._id) : ids.slice(start+1);
+  targets.forEach(id=>{ const r=rowById(id); r[k]=v; if(r._auto) delete r._auto[k]; applyAuto(r,k); });
+  save(); render(); toast(`Filled ${k} into ${targets.length} row${targets.length===1?"":"s"}`);
+}
+
+/* ===== toolbar ===== */
+const CARRY=["BLDG","FLOOR","FR MFGR","DR MFGR","FR TYPE","FR SERIES","FR CONSTR","FR MATL","FR FINISH","DR SERIES","DR CORE","DR MATL/FACE","DR EDGE","DR FINISH","WALL TYPE","WALL THICK","JAMB DEPTH","LEFT JAMB ANCHOR","RIGHT JAMB ANCHOR","HEAD ANCHOR","FR GAUGE","DR GAUGE","DR UNDERCUT","DOOR TYPE"];
+$("add").onclick=()=>{ const rows=P().rows; const last=rows[rows.length-1]; const r=newRow();
+  if(last) CARRY.forEach(k=>{ if(last[k]){ r[k]=last[k]; r._auto[k]=true; } });
+  rows.push(r); save(); render(); renderProjects();
+  document.querySelector(`tr[data-id="${r._id}"] [data-k="MARK"]`)?.focus(); $("wrap").scrollTop=$("wrap").scrollHeight; };
+$("dup").onclick=()=>{ if(!SEL.size){ toast("Tick the rows to copy first."); return; } const out=[];
+  P().rows.forEach(r=>{ out.push(r); if(SEL.has(r._id)){ const c=JSON.parse(JSON.stringify(r)); c._id=uid(); c.MARK=""; if(c._auto&&c._auto["ARCH MARK"]) c["ARCH MARK"]=""; out.push(c); } });
+  P().rows=out; SEL.clear(); save(); render(); renderProjects(); toast("Copied. Fill in the new marks."); };
+let delArm=0;
+$("del").onclick=()=>{ if(!SEL.size){ toast("Tick the rows to delete first."); return; }
+  if(Date.now()-delArm>3000){ delArm=Date.now(); $("del").textContent=`CLICK AGAIN TO DELETE ${SEL.size}`; setTimeout(()=>{$("del").textContent="DELETE SELECTED";},3000); return; }
+  P().rows=P().rows.filter(r=>!SEL.has(r._id)); toast(`Deleted ${SEL.size} row${SEL.size===1?"":"s"}`); SEL.clear(); delArm=0; $("del").textContent="DELETE SELECTED"; save(); render(); renderProjects(); };
+$("fill").onclick=()=>fillDown();
+$("sort").onclick=()=>{ P().rows.sort((a,b)=>String(a.MARK||"").localeCompare(String(b.MARK||""),undefined,{numeric:true})); save(); render(); };
+$("filter").oninput=e=>{ FILTER=e.target.value; render(); };
+$("grpToggles").onclick=e=>{ const b=e.target.closest("[data-g]"); if(!b) return; S.hide[b.dataset.g]=!S.hide[b.dataset.g]; if(GROUPS.every(g=>S.hide[g])) S.hide[b.dataset.g]=false; save(); renderToggles(); render(); };
+$("optHead").checked=S.opts.head; $("optParen").checked=S.opts.paren;
+$("optHead").onchange=e=>{ S.opts.head=e.target.checked; save(); };
+$("optParen").onchange=e=>{ S.opts.paren=e.target.checked; save(); };
+
+/* projects */
+$("projSel").onchange=e=>{ S.cur=e.target.value; SEL.clear(); save(); render(); };
+$("projNew").onclick=()=>{ const n=prompt("Project name"); if(!n) return; const id=uid(); S.projects[id]={name:n.trim(),rows:[],hw:{}}; S.cur=id; SEL.clear(); save(); renderProjects(); render(); };
+$("projRen").onclick=()=>{ const n=prompt("Rename project",P().name); if(!n) return; P().name=n.trim(); save(); renderProjects(); };
+$("projDel").onclick=()=>{ if(!confirm(`Delete "${P().name}" and its ${P().rows.length} rows? This can't be undone.`)) return;
+  delete S.projects[S.cur]; if(!Object.keys(S.projects).length){ const id=uid(); S.projects[id]={name:"New project",rows:[],hw:{}}; } S.cur=Object.keys(S.projects)[0]; SEL.clear(); save(); renderProjects(); render(); };
+
+/* ===== import: Schedule to Takeoff .txt (with or without header), or e-Mullion's own .csv export ===== */
+function parseDelimited(text){
+  const delim = text.split(/\r?\n/)[0].includes("\t") ? "\t" : ",";
+  const out=[]; let row=[], f="", q=false;
+  for(let i=0;i<text.length;i++){ const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){ f+='"'; i++; } else q=false; } else f+=ch; }
+    else if(ch==='"' && f==="") q=true; else if(ch===delim){ row.push(f); f=""; }
+    else if(ch==="\n"||ch==="\r"){ if(ch==="\r"&&text[i+1]==="\n") i++; row.push(f); f=""; if(row.some(x=>x!=="")) out.push(row); row=[]; }
+    else f+=ch; }
+  row.push(f); if(row.some(x=>x!=="")) out.push(row); return out;
+}
+$("imp").onchange=async e=>{
+  const file=e.target.files[0]; e.target.value=""; if(!file) return;
+  const data=parseDelimited(await file.text()); if(!data.length){ toast("That file is empty."); return; }
+  let head=data[0].map(h=>h.trim().toUpperCase()), body=data.slice(1);
+  if(!head.includes("MARK")){ body=data; const n=data[0].length; head = n>=61 ? padRow(EXPORT_COLS,i=>"SPARE "+i) : n===EM_HEADERS.length && data[0][3] && !data[0][1] ? EM_HEADERS : EXPORT_COLS; }
+  const known=new Set(COLS.map(c=>c[0]));
+  const rows=body.map(cells=>{ const r={_id:uid(),_auto:{}}; head.forEach((h,i)=>{ if(!known.has(h)) return; let v=(cells[i]??"").trim();
+      const col=COLS.find(c=>c[0]===h);
+      if(col[3]==="size"){ const n=parseSize(v); v=n!=null?fmtSize(n):v.replace(/[()]/g,""); }
+      if(col[3]==="inch") v=v.replace(/[()]/g,"");
+      r[h]=v; });
+    const fw=parseSize(r["FR WIDTH"]), fh=parseSize(r["FR HEIGHT"]), mode=r["OPG MODE"]||"SGL";
+    if(fw!=null && !r["DR WIDTH ACT"]){ setAuto(r,"DR WIDTH ACT",fmtSize(mode==="SGL"?fw:fw/2)); if(mode!=="SGL") setAuto(r,"DR WIDTH INACT",fmtSize(fw/2)); }
+    if(fh!=null && !r["DR HEIGHT"]) setAuto(r,"DR HEIGHT",fmtSize(fh));
+    if(!r["ACT DR TEMPLATE"]) setAuto(r,"ACT DR TEMPLATE",["F","N","V","HG","FG","L","NL","VL"].includes(r["DOOR TYPE"])?r["DOOR TYPE"]:"F");
+    if(!r["DRAW/FR TEMPLATE"]) setAuto(r,"DRAW/FR TEMPLATE","STD");
+    if(!r["ARCH MARK"] && r.MARK) setAuto(r,"ARCH MARK",r.MARK);
+    return r; });
+  const p=P(); if(p.rows.length && !confirm(`Add ${rows.length} imported rows to "${p.name}"? Click Cancel to replace its ${p.rows.length} rows instead.`)) p.rows=[];
+  p.rows.push(...rows); save(); render(); renderProjects(); toast(`Imported ${rows.length} row${rows.length===1?"":"s"}`);
+};
+
+/* ===== export: identical layout to the Schedule to Takeoff .txt (tab-delimited, 61 columns, CRLF) ===== */
+function exportVal(r,k){
+  let v=String(r[k]??"").trim(); if(!v) return "";
+  if(SIZE_COLS.has(k)){ const n=parseSize(v); if(n!=null) v=ftInDec(n); }
+  if(S.opts.paren && PAREN_COLS.has(k) && !/^\(.*\)$/.test(v)) v="("+v+")";
+  return v.replace(/[\t\n\r]/g," ");
+}
+$("exp").onclick=()=>{
+  const p=P(); if(!p.rows.length){ toast("No openings to export yet."); return; }
+  const body=p.rows.map(r=>padRow(EXPORT_COLS.map(k=>exportVal(r,k)),()=>"").join("\t"));
+  if(S.opts.head) body.unshift(padRow(EXPORT_COLS,i=>"SPARE "+i).join("\t"));
+  download(body.join("\r\n")+"\r\n", fileBase()+".txt");
+  toast(`Exported ${p.rows.length} rows`);
+};
+function fileBase(){ return (P().name||"takeoff").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_")||"takeoff"; }
+function download(text,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"text/plain"})); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),3000); }
+
+/* ===== hardware headings ===== */
+let HW_CUR=null;
+function headingUse(){ const m={}; P().rows.forEach(r=>{ const h=(r.HEADING||"").trim(); if(!h) return; m[h]=m[h]||{rows:0,qty:0,marks:[]}; m[h].rows++; m[h].qty+=Math.max(0,parseInt(r.QTY)||0); if(r.MARK) m[h].marks.push(r.MARK); }); return m; }
+function headingNames(){ const use=headingUse(); return [...new Set([...Object.keys(use),...Object.keys(P().hw)])].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})); }
+function openHW(h){ $("hwOv").hidden=false; $("hwProj").textContent=P().name; HW_CUR=h||HW_CUR; const names=headingNames(); if(!names.includes(HW_CUR)) HW_CUR=names[0]||null; renderHW(); }
+function renderHWSide(){
+  const use=headingUse(), names=headingNames(), hw=P().hw;
+  $("hwList").innerHTML=names.length?names.map(h=>{ const u=use[h], n=(hw[h]||[]).length;
+    return `<button type="button" class="h" data-h="${esc(h)}" aria-current="${h===HW_CUR}"><span>${esc(h)}</span><span class="cnt${n?"":" none"}">${u?u.qty+" opg":"unused"} · ${n?n+" items":"no hw"}</span></button>`; }).join("")
+    :`<div class="note" style="padding:12px">No headings yet. Type them in the HEADING column, or add one below.</div>`;
+}
+function renderHW(){
+  renderHWSide(); const use=headingUse(), names=headingNames(), hw=P().hw;
+  if(!HW_CUR){ $("hwEd").innerHTML=`<div class="note">Pick a heading on the left. Every heading you type in the grid's HEADING column shows up here.</div>`; return; }
+  const items=hw[HW_CUR]||[], u=use[HW_CUR];
+  $("hwEd").innerHTML=`<div class="row"><h3>${esc(HW_CUR)}</h3><span class="note">${u?`${u.qty} opening${u.qty===1?"":"s"}: ${esc(u.marks.slice(0,30).join(", "))}${u.marks.length>30?"…":""}`:"Not used by any opening yet"}</span></div>
+    <div class="tbl"><table class="mini"><thead><tr><th style="width:60px">QTY</th><th style="width:200px">ITEM</th><th style="width:140px">MFR</th><th>CATALOG / MODEL</th><th style="width:150px">FUNCTION / TYPE</th><th style="width:90px">FINISH</th><th style="width:160px">NOTES</th><th style="width:40px"></th></tr></thead>
+    <tbody id="hwItems">${items.map((it,i)=>`<tr data-i="${i}"><td><input data-f="qty" value="${esc(it.qty)}" inputmode="numeric" aria-label="Qty"></td><td><input data-f="item" list="dl_hwItem" value="${esc(it.item)}" aria-label="Item"></td><td><input data-f="mfr" list="dl_hwMfr" value="${esc(it.mfr)}" aria-label="Manufacturer"></td><td><input data-f="cat" value="${esc(it.cat)}" aria-label="Catalog number"></td><td><input data-f="func" value="${esc(it.func)}" aria-label="Function"></td><td><input data-f="fin" list="dl_hwFin" value="${esc(it.fin)}" aria-label="Finish"></td><td><input data-f="notes" value="${esc(it.notes)}" aria-label="Notes"></td><td><button type="button" class="x" data-rm aria-label="Remove item">✕</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="row"><button type="button" class="pri" id="hwAddItem">+ ADD ITEM</button><button type="button" id="hwCopy">COPY FROM…</button><select id="hwCopySrc" aria-label="Copy items from heading"><option value="">heading</option>${names.filter(n=>n!==HW_CUR&&(hw[n]||[]).length).map(n=>`<option>${esc(n)}</option>`).join("")}</select><button type="button" id="hwDelHead">DELETE HEADING</button></div>
+    <div><div class="note" style="margin-bottom:6px">Paste a hardware set straight from the spec or Spec Gather, one item per line. Quantities, manufacturer codes and finishes are picked out where they're recognized; check the rows after.</div>
+    <textarea id="hwPaste" placeholder="3 EA HINGE  5BB1 4.5 X 4.5  652  IVE&#10;1 EA STOREROOM LOCK  ND80PD RHO  626  SCH&#10;1 EA CLOSER  4040XP  689  LCN"></textarea>
+    <div class="row" style="margin-top:6px"><button type="button" class="pri" id="hwPasteBtn">ADD PASTED ITEMS</button></div></div>
+    <div class="note">The 3D view reads these items: hinges, continuous hinge, lockset or exit device, closer, kick plate, threshold, astragal and mullion are drawn on the opening.</div>`;
+}
+$("hwBtn").onclick=()=>openHW();
+$("hwClose").onclick=()=>{ $("hwOv").hidden=true; buildColLists("HEADING"); status(); };
+$("hwList").onclick=e=>{ const b=e.target.closest("[data-h]"); if(!b) return; HW_CUR=b.dataset.h; renderHW(); };
+$("hwNewBtn").onclick=()=>{ const h=$("hwNew").value.trim().toUpperCase(); if(!h) return; if(!P().hw[h]) P().hw[h]=[]; HW_CUR=h; $("hwNew").value=""; save(); renderHW(); };
+$("hwNew").onkeydown=e=>{ if(e.key==="Enter") $("hwNewBtn").click(); };
+$("hwEd").addEventListener("change",e=>{ const f=e.target.dataset.f; if(!f) return; const i=+e.target.closest("tr").dataset.i; const items=P().hw[HW_CUR]; let v=e.target.value.trim(); if(f!=="notes") v=v.toUpperCase(); if(f==="mfr") v=v.split(" - ")[0]; items[i][f]=v; e.target.value=v; save(); renderHWSide(); });
+$("hwEd").addEventListener("click",e=>{
+  const hw=P().hw;
+  if(e.target.matches("[data-rm]")){ hw[HW_CUR].splice(+e.target.closest("tr").dataset.i,1); save(); renderHW(); }
+  else if(e.target.id==="hwAddItem"){ (hw[HW_CUR]=hw[HW_CUR]||[]).push({qty:"1",item:"",mfr:"",cat:"",func:"",fin:"",notes:""}); save(); renderHW(); $("hwItems").lastElementChild?.querySelector('[data-f="item"]').focus(); }
+  else if(e.target.id==="hwCopy"){ const src=$("hwCopySrc").value; if(!src){ toast("Pick a heading to copy from."); return; } hw[HW_CUR]=(hw[HW_CUR]||[]).concat(JSON.parse(JSON.stringify(hw[src]))); save(); renderHW(); toast(`Copied ${hw[src].length} items from ${src}`); }
+  else if(e.target.id==="hwDelHead"){ const n=(hw[HW_CUR]||[]).length; if(n && !confirm(`Delete the ${n} items in ${HW_CUR}? The HEADING column in the grid isn't changed.`)) return; delete hw[HW_CUR]; HW_CUR=null; save(); openHW(); }
+  else if(e.target.id==="hwPasteBtn"){ const items=parseSet($("hwPaste").value); if(!items.length){ toast("Nothing to add. Paste one item per line."); return; } (hw[HW_CUR]=hw[HW_CUR]||[]).push(...items); save(); renderHW(); toast(`Added ${items.length} items`); }
+});
+const MFR_CODES = L.hwMfr.map(m=>m.split(" - ")[0]);
+const MFR_NAMES = Object.fromEntries(L.hwMfr.map(m=>{ const [c,n]=m.split(" - "); return [n.toUpperCase(),c]; }));
+function parseSet(text){
+  return text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l && !/^(HARDWARE\s+)?(SET|HEADING|GROUP)\b.*[:#]/i.test(l) && !/^EACH\s+(TO|OPENING)/i.test(l)).map(line=>{
+    let t=line.replace(/\s+/g," ").toUpperCase(), qty="1", mfr="", fin="";
+    let m=t.match(/^(\d+)\s*(EA|EACH|SET|SETS|PR|PAIR|PC|PCS|LF)?\.?\s+/); if(m){ qty=m[1]; t=t.slice(m[0].length); }
+    for(const c of MFR_CODES){ const re=new RegExp(`(^|\\s)${c}$`); if(re.test(t)){ mfr=c; t=t.replace(re,"").trim(); break; } }
+    if(!mfr){ for(const [n,c] of Object.entries(MFR_NAMES)){ if(t.includes(n)){ mfr=c; t=t.replace(n,"").trim(); break; } } }
+    m=t.match(/(^|\s)(626|628|630|652|689|613|605|622|690|710|US26D|US32D|US10B|US3|AL|DKB)(\s|$)/); if(m){ fin=m[2]; t=(t.slice(0,m.index)+" "+t.slice(m.index+m[0].length)).replace(/\s+/g," ").trim(); }
+    let item=""; const order=[...L.hwItem].sort((a,b)=>b.length-a.length);
+    const alias=[[/CONT(INUOUS)?\.? HINGE/,"CONTINUOUS HINGE"],[/HINGE/,"HINGES"],[/EXIT|PANIC|RIM DEVICE/,"EXIT DEVICE"],[/STOREROOM|CLASSROOM|OFFICE|ENTRY|LOCKSET|LOCK\b|MORTISE/,"LOCKSET"],[/PASSAGE/,"PASSAGE SET"],[/PRIVACY/,"PRIVACY SET"],[/CLOSER/,"CLOSER"],[/OVERHEAD|O\.?H\.? STOP/,"OH STOP"],[/WALL STOP|WALL BUMPER/,"WALL STOP"],[/FLOOR STOP/,"FLOOR STOP"],[/KICK/,"KICK PLATE"],[/THRESH/,"THRESHOLD"],[/GASKET|SEAL/,"GASKETING"],[/SWEEP/,"SWEEP"],[/SILENCER/,"SILENCERS"],[/ASTRAGAL/,"ASTRAGAL"],[/MULLION/,"REMOVABLE MULLION"],[/FLUSH BOLT/,"FLUSH BOLTS"],[/COORDINATOR/,"COORDINATOR"],[/CYLINDER|CORE\b/,"CYLINDER"],[/PUSH PLATE/,"PUSH PLATE"],[/PULL/,"PULL"],[/DRIP/,"DRIP CAP"],[/ELEC.*STRIKE/,"ELECTRIC STRIKE"],[/POWER TRANSFER|EPT/,"POWER TRANSFER"],[/POSITION SWITCH|DPS/,"DOOR POSITION SWITCH"],[/READER/,"CARD READER"],[/DUMMY/,"DUMMY TRIM"]];
+    for(const [re,name] of alias){ if(re.test(t)){ item=name; break; } }
+    if(!item) for(const n of order){ if(t.startsWith(n)){ item=n; break; } }
+    let cat=t; if(item && t.startsWith(item)) cat=t.slice(item.length).trim(); else if(/^(CONT(INUOUS)?\.? )?HINGES? /.test(cat)) cat=cat.replace(/^(CONT(INUOUS)?\.? )?HINGES? /,"");
+    return {qty, item:item||"", mfr, cat, func:"", fin, notes:""};
+  });
+}
+$("hwExp").onclick=()=>{
+  const hw=P().hw, use=headingUse(), q=c=>/[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;
+  const lines=[["HEADING","OPENINGS","MARKS","QTY","ITEM","MFR","CATALOG / MODEL","FUNCTION / TYPE","FINISH","NOTES"].join(",")];
+  headingNames().forEach(h=>{ const u=use[h]; (hw[h]||[{}]).forEach(it=>lines.push([h,u?String(u.qty):"0",u?u.marks.join(" "):"",it.qty||"",it.item||"",it.mfr||"",it.cat||"",it.func||"",it.fin||"",it.notes||""].map(v=>q(String(v))).join(","))); });
+  download(lines.join("\r\n")+"\r\n", fileBase()+"_hardware_headings.csv"); toast("Exported hardware headings");
+};
+
+/* ===== 3D view (shaded elevation with dimensions, same look as the field card) ===== */
+const RV_W=640, RV_H=820;
+function rvLabel(x,y,t,anchor,size){ const w=String(t).length*(size||10)*0.56+8, x0=anchor==="middle"?x-w/2:(anchor==="end"?x-w:x-2);
+  return `<rect x="${x0}" y="${y-(size||10)}" width="${w}" height="${(size||10)+4}" rx="3" fill="#ffffff" opacity="0.85"/><text x="${x}" y="${y}" font-family="Arial, Helvetica, sans-serif" font-size="${size||10}" font-weight="bold" fill="#1f4a22" text-anchor="${anchor||"middle"}">${esc(t)}</text>`; }
+function rvDimH(x1,x2,y,t){ return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#1f4a22" stroke-width="0.9"/><line x1="${x1}" y1="${y-5}" x2="${x1}" y2="${y+5}" stroke="#1f4a22" stroke-width="0.9"/><line x1="${x2}" y1="${y-5}" x2="${x2}" y2="${y+5}" stroke="#1f4a22" stroke-width="0.9"/>`+rvLabel((x1+x2)/2,y-4,t,"middle",10); }
+function rvDimV(x,y1,y2,t){ const cy=(y1+y2)/2, w=String(t).length*5.6+8;
+  return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#1f4a22" stroke-width="0.9"/><line x1="${x-5}" y1="${y1}" x2="${x+5}" y2="${y1}" stroke="#1f4a22" stroke-width="0.9"/><line x1="${x-5}" y1="${y2}" x2="${x+5}" y2="${y2}" stroke="#1f4a22" stroke-width="0.9"/>`
+   +`<g transform="rotate(-90 ${x} ${cy})"><rect x="${x-w/2}" y="${cy-11}" width="${w}" height="14" rx="3" fill="#ffffff" opacity="0.85"/><text x="${x}" y="${cy}" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="bold" fill="#1f4a22" text-anchor="middle">${esc(t)}</text></g>`; }
+function rvRand(seed){ let t=seed>>>0; return ()=>{ t+=0x6D2B79F5; let r=Math.imul(t^(t>>>15),1|t); r^=r+Math.imul(r^(r>>>7),61|r); return ((r^(r>>>14))>>>0)/4294967296; }; }
+function rvShade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=n>>16,g=(n>>8)&255,b=n&255; const f=v=>Math.max(0,Math.min(255,Math.round(amt<0?v*(1+amt):v+(255-v)*amt))); return "#"+[f(r),f(g),f(b)].map(v=>v.toString(16).padStart(2,"0")).join(""); }
+function rvWoodGrain(x,y,w,h,look,seed,id){ const R=rvRand(seed); let t=""; const dark=rvShade(look.base,-0.28), light=rvShade(look.base,0.18);
+  t+=`<defs><linearGradient id="wg${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${rvShade(look.base,-0.08)}"/><stop offset="0.5" stop-color="${rvShade(look.base,0.06)}"/><stop offset="1" stop-color="${rvShade(look.base,-0.1)}"/></linearGradient></defs><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#wg${id})"/>`;
+  const n=Math.max(14,Math.round(w/5));
+  for(let i=0;i<n;i++){ const gx=x+(i+R())*w/n, op=(0.18+R()*0.35).toFixed(2), col=R()>0.3?dark:light;
+    if(R()>0.55){ const top=y+h*(0.1+R()*0.5), wd=4+R()*10; t+=`<path d="M${gx-wd} ${y+h} C ${gx-wd} ${top+h*0.2}, ${gx-wd*0.3} ${top}, ${gx} ${top} C ${gx+wd*0.3} ${top}, ${gx+wd} ${top+h*0.2}, ${gx+wd} ${y+h}" stroke="${col}" stroke-width="${(0.5+R()).toFixed(2)}" fill="none" opacity="${op}"/>`; }
+    else t+=`<path d="M${gx} ${y} C ${gx+(R()-0.5)*5} ${y+h*0.33}, ${gx+(R()-0.5)*5} ${y+h*0.66}, ${gx+(R()-0.5)*2.5} ${y+h}" stroke="${col}" stroke-width="${(0.4+R()*0.9).toFixed(2)}" fill="none" opacity="${op}"/>`; }
+  return t; }
+function rvGlass(x,y,w,h,id){ return `<defs><linearGradient id="gl${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfe3ec"/><stop offset="0.55" stop-color="#9fbfcf"/><stop offset="1" stop-color="#7fa3b6"/></linearGradient><clipPath id="cp${id}"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath></defs>`
+  +`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#gl${id})"/><polygon points="${x+w*0.15},${y} ${x+w*0.38},${y} ${x+w*0.05},${y+h} ${x-w*0.18},${y+h}" fill="#ffffff" opacity="0.22" clip-path="url(#cp${id})"/><polygon points="${x+w*0.5},${y} ${x+w*0.58},${y} ${x+w*0.3},${y+h} ${x+w*0.22},${y+h}" fill="#ffffff" opacity="0.14"/>`; }
+function rvMetal(id,base){ return `<defs><linearGradient id="mt${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${rvShade(base,0.45)}"/><stop offset="0.45" stop-color="${base}"/><stop offset="1" stop-color="${rvShade(base,-0.35)}"/></linearGradient></defs>`; }
+const FIN_HEX={"BONE WHITE":"#e6dfcb","WHITE":"#efede6","BLACK":"#2c2c2c","DARK BRONZE":"#4e3d2d","CLEAR ANODIZED":"#c3c7c8","FACTORY PAINT":"#7f8a86"};
+const SPECIES_HEX={RO:"#c08b5c",WO:"#c9a878",WM:"#e8d5b0",WB:"#e3cfa8",BIRCH:"#d6b98c",MAPLE:"#e8d5b0",CHERRY:"#a3593a",WALNUT:"#6a4a33",MAHOGANY:"#8c4a30"};
+function doorLook(r){
+  const ty=(r["DOOR TYPE"]||"").toUpperCase(), fin=(r["DR FINISH"]||"").toUpperCase();
+  const m=(r["DR MATL/FACE"]||(ty==="WD"?"WD":ty==="FRPD"?"FRP":ty==="ALUM"?"ALUM":"")).toUpperCase();
+  if(/FRP/.test(m)) return {kind:"frp",base:FIN_HEX[fin]||"#dcdad3",label:`FRP ${fin.toLowerCase()||""}`.trim()};
+  if(/^WD|WOOD|OAK|MAPLE|BIRCH|CHERRY|WALNUT/.test(m)){ const sp=Object.keys(SPECIES_HEX).find(k=>m.includes(k)); let base=SPECIES_HEX[sp]||"#c08b5c"; if(/STAIN/.test(fin)) base=rvShade(base,-0.25); return {kind:"wood",base,label:`wood ${m.toLowerCase()}`}; }
+  if(/HPL|MDO|PAINT/.test(m)) return {kind:"paint",base:FIN_HEX[fin]||"#e4e0d6",label:m.toLowerCase()};
+  if(/ALUM/.test(m)) return {kind:"steel",base:FIN_HEX[fin]||"#c3c7c8",label:"aluminum"};
+  const painted=/FACTORY PAINT|BONE|WHITE|BLACK|BRONZE/.test(fin);
+  return {kind:"steel",base:painted?(FIN_HEX[fin]||"#7f8a86"):"#a9adab",label:`hollow metal${fin?", "+fin.toLowerCase():", primed"}`};
+}
+function frameColor(r){ const ty=(r["FR TYPE"]||"").toUpperCase(), m=(r["FR MATL"]||(ty==="FRPF"?"FRP":ty==="ALUM"?"ALUM":"")).toUpperCase(), fin=(r["FR FINISH"]||"").toUpperCase();
+  if(ty==="WDF") return "#a8764a";
+  if(FIN_HEX[fin]) return FIN_HEX[fin]; if(/FRP/.test(m)) return "#dedbd2"; if(/ALUM/.test(m)) return "#c3c7c8"; if(/SS/.test(m)) return "#c4c8c9"; if(/A60|G90|GALV/.test(m)) return "#9ea6a6"; return "#8f9894"; }
+function parseWxH(t){ const m=String(t||"").toUpperCase().replace(/["”]/g,"").match(/(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?)\s*[X×]\s*(\d+(?:\.\d+)?(?:\s+\d+\/\d+)?)/); return m?[fracToNum(m[1]),fracToNum(m[2])]:null; }
+/* hardware from the heading's items */
+function hwFlags(r){
+  const items=P().hw[(r.HEADING||"").trim()]||[], pair=["PR","DE","UPR"].includes(r["OPG MODE"]);
+  const f={has:items.length>0,hinges:0,cont:false,device:null,vrod:false,devBoth:false,closer:0,kick:false,thr:false,astragal:false,mullion:false,pull:false,list:[]};
+  items.forEach(it=>{ const t=`${it.item} ${it.cat} ${it.func}`.toUpperCase(), q=Math.max(1,parseInt(it.qty)||1);
+    if(it.item) f.list.push(`${q} ${it.item.toLowerCase()}`);
+    if(/CONT/.test(t)&&/HINGE/.test(t)) f.cont=true; else if(/HINGE/.test(t)&&!/POWER/.test(t)) f.hinges+=q;
+    if(/EXIT|PANIC|RIM|CVR|SVR|\b9[89]\d\d|\b33A|\b35A|\b8[0-9]{3}\b.*EXIT/.test(t)){ f.device="exit"; if(/SVR|VERT|\bVR\b|SURFACE ROD/.test(t)) f.vrod=true; if(q>=2) f.devBoth=true; }
+    else if(!f.device && /MORTISE|\bL9\d|\bML2|\b8200|\b7800/.test(t)) f.device="mortise";
+    else if(!f.device && /LOCK|LATCH|LEVER|PASSAGE|PRIVACY|STOREROOM|CLASSROOM|OFFICE|ENTRY|\bND\d|\bAL\d0|\bCL3|LOCKSET/.test(t) && !/ELEC|STRIKE/.test(t)) f.device="lever";
+    if(/PULL|PUSH PLATE/.test(t)) f.pull=true;
+    if(/CLOSER|\b40[14]\d|\b41[14]\d|\b1461|\b281\b|\bDC\d/.test(t) && !/CONCEAL|COORD/.test(t)) f.closer+=q;
+    if(/KICK/.test(t)) f.kick=true; if(/THRESH/.test(t)) f.thr=true; if(/ASTRAGAL/.test(t)) f.astragal=true; if(/MULLION/.test(t)) f.mullion=true; });
+  if(!f.has){ f.hinges=pair?6:3; f.device="lever"; }
+  f.perLeaf = Math.max(2, Math.round((f.hinges||(pair?6:3))/(pair?2:1)));
+  return f;
+}
+function renderOpening(r){
+  const fw=parseSize(r["FR WIDTH"]), fh=parseSize(r["FR HEIGHT"]); if(!fw||!fh) return null;
+  const mode=r["OPG MODE"]||"SGL", pair=["PR","DE","UPR"].includes(mode);
+  const ft=(r["DRAW/FR TEMPLATE"]||"STD").toUpperCase(), dt=(r["ACT DR TEMPLATE"]||r["DOOR TYPE"]||"F").toUpperCase();
+  const slSide=/SL-?2|SLB|BOTH/.test(ft)?"B":/SL-?L/.test(ft)?"L":/SL-?R/.test(ft)?"R":"";
+  const hasTr=/TR/.test(ft), mull=2;
+  const slW=fracToNum(r["SIDELITE W"])||18, trH=fracToNum(r["TRANSOM H"])||18;
+  const slL=(slSide==="L"||slSide==="B")?slW:0, slR=(slSide==="R"||slSide==="B")?slW:0;
+  const faceJ=2, faceH=r["HEAD FACE"]==="4"?4:2;
+  const inW=fw+(slL?slL+mull:0)+(slR?slR+mull:0), inH=fh+(hasTr?trH+mull:0);
+  const outW=inW+2*faceJ, outH=inH+faceH;
+  const s=Math.min((RV_W-240)/outW,(RV_H-360)/outH), px=v=>v*s;
+  const X0=(RV_W-px(outW))/2+6, floorY=RV_H-180, Y0=floorY-px(outH);
+  const masonry=/CMU|MAS/.test((r["WALL TYPE"]||"").toUpperCase())||(r["FR SERIES"]||"").toUpperCase()==="M";
+  const fcol=frameColor(r), look=doorLook(r), hw=hwFlags(r);
+  let g=`<defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${masonry?"#cfcac0":"#ece8df"}"/><stop offset="1" stop-color="${masonry?"#bdb7ab":"#dcd7cc"}"/></linearGradient><linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a39a8b"/><stop offset="1" stop-color="#7f7768"/></linearGradient><radialGradient id="glow" cx="0.5" cy="0.35" r="0.75"><stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient></defs>`;
+  g+=`<rect x="0" y="0" width="${RV_W}" height="${floorY}" fill="url(#wall)"/>`;
+  if(masonry){ const bh=px(8), bw=px(16); for(let yy=floorY-bh,row=0; yy>-bh; yy-=bh,row++){ g+=`<line x1="0" y1="${yy}" x2="${RV_W}" y2="${yy}" stroke="#aaa498" stroke-width="0.8"/>`; for(let xx=(row%2?bw/2:0); xx<RV_W; xx+=bw) g+=`<line x1="${xx}" y1="${yy}" x2="${xx}" y2="${yy+bh}" stroke="#aaa498" stroke-width="0.8"/>`; } }
+  g+=`<rect x="0" y="0" width="${RV_W}" height="${floorY}" fill="url(#glow)"/><rect x="0" y="${floorY}" width="${RV_W}" height="${RV_H-floorY}" fill="url(#floor)"/><rect x="10" y="${floorY+10}" width="${RV_W-20}" height="${RV_H-floorY-18}" rx="8" fill="#ffffff" opacity="0.72"/><rect x="0" y="${floorY}" width="${RV_W}" height="3" fill="#6f675a"/>`;
+  g+=`<rect x="${X0+5}" y="${Y0+5}" width="${px(outW)}" height="${px(outH)-5}" fill="#000" opacity="0.13"/>`+rvMetal("fr",fcol)+`<rect x="${X0}" y="${Y0}" width="${px(outW)}" height="${px(outH)}" fill="url(#mtfr)" stroke="${rvShade(fcol,-0.45)}" stroke-width="1"/>`;
+  const inX=X0+px(faceJ), inY=Y0+px(faceH);
+  const recess=(x,y,w,h)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#3b3f3c"/><rect x="${x}" y="${y}" width="${w}" height="${Math.max(2,px(0.9))}" fill="#000" opacity="0.35"/><rect x="${x}" y="${y}" width="${Math.max(2,px(0.7))}" height="${h}" fill="#000" opacity="0.25"/>`;
+  let gid=0; const glazed=(x,y,w,h)=>{ gid++; const st=Math.max(1.5,px(0.625)); return recess(x,y,w,h)+rvGlass(x+st,y+st,w-2*st,h-2*st,"f"+gid)+`<rect x="${x+st}" y="${y+st}" width="${w-2*st}" height="${h-2*st}" fill="none" stroke="${rvShade(fcol,-0.3)}" stroke-width="${Math.max(1,st*0.6)}"/>`; };
+  const doorTopIn=hasTr?trH+mull:0, sill=2;
+  if(slL) g+=glazed(inX,inY,px(slL),px(inH-sill));
+  const doorX=inX+(slL?px(slL+mull):0), doorY=inY+px(doorTopIn), doorW=px(fw), doorH=px(fh);
+  if(hasTr) g+=glazed(doorX,inY,doorW,px(trH));
+  if(slR) g+=glazed(doorX+doorW+px(mull),inY,px(slR),px(inH-sill));
+  g+=recess(doorX,doorY,doorW,doorH);
+  // leaves
+  const hand=(r.HAND||"RH").toUpperCase(), hingeRight=hand.charAt(0)==="R";
+  const gap=Math.max(1,px(0.125)), under=fracToNum(r["DR UNDERCUT"])??0.75;
+  const aW=parseSize(r["DR WIDTH ACT"])||(pair?fw/2:fw), iW=pair?(parseSize(r["DR WIDTH INACT"])||fw-aW):0;
+  const leafWs=pair?[aW,iW]:[aW], order=pair?(hingeRight?[1,0]:[0,1]):[0];
+  const leafTop=doorY+gap, leafBot=floorY-px(under), lh=leafBot-leafTop, leafH=fh-0.125-under;
+  const totalLeafPx=doorW-2*gap-(pair?gap:0), nomTotal=leafWs.reduce((a,b)=>a+b,0);
+  const glassKind=/FG/.test(dt)?"FG":/HG/.test(dt)?"HG":/N/.test(dt)?"N":/V/.test(dt)?"V":null;
+  const louver=/L/.test(dt.replace(/FLUSH/g,""));
+  const liteSz=parseWxH(r["LITE SIZE"]), louvSz=parseWxH(r["LOUVER SIZE"])||[24,24];
+  let lx=doorX+gap;
+  order.forEach((li,pos)=>{
+    const lw=totalLeafPx*leafWs[li]/nomTotal, sx=lw/leafWs[li], sy=lh/leafH, active=!pair||li===0;
+    const hingeOnRight=pair?(pos===order.length-1):hingeRight, seed=Math.round(leafWs[li]*100+fh*7+li*13), id=""+li+pos;
+    if(look.kind==="wood") g+=rvWoodGrain(lx,leafTop,lw,lh,look,seed,"l"+id);
+    else if(look.kind==="frp"){ g+=`<rect x="${lx}" y="${leafTop}" width="${lw}" height="${lh}" fill="${look.base}"/>`; const R=rvRand(seed), n=Math.round(lw*lh/9);
+      for(let q=0;q<n;q++) g+=`<circle cx="${(lx+R()*lw).toFixed(1)}" cy="${(leafTop+R()*lh).toFixed(1)}" r="${(0.35+R()*0.4).toFixed(2)}" fill="${R()>0.5?rvShade(look.base,-0.12):rvShade(look.base,0.12)}" opacity="0.7"/>`;
+      g+=`<rect x="${lx}" y="${leafTop}" width="${lw}" height="${lh}" fill="url(#glow)" opacity="0.5"/>`; }
+    else g+=`<defs><linearGradient id="sf${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${rvShade(look.base,0.22)}"/><stop offset="0.6" stop-color="${look.base}"/><stop offset="1" stop-color="${rvShade(look.base,-0.18)}"/></linearGradient></defs><rect x="${lx}" y="${leafTop}" width="${lw}" height="${lh}" fill="url(#sf${id})"/>`;
+    g+=`<rect x="${lx}" y="${leafTop}" width="${lw}" height="${lh}" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="1"/><rect x="${hingeOnRight?lx+lw-2.5:lx}" y="${leafTop}" width="2.5" height="${lh}" fill="#000" opacity="0.18"/>`;
+    // lite from the door template
+    if(glassKind){ let w,h,top,side;
+      if(glassKind==="N"){ [w,h]=liteSz||[4,25]; top=6; side="lock"; }
+      else if(glassKind==="V"){ [w,h]=liteSz||[10,10]; top=6; side="center"; }
+      else if(glassKind==="HG"){ [w,h]=liteSz||[leafWs[li]-10,32]; top=6; side="center"; }
+      else { [w,h]=liteSz||[leafWs[li]-10,leafH-6-(louver?louvSz[1]+18:16)]; top=6; side="center"; }
+      const kw=(w+1.5)*sx, kh=(h+1.5)*sy, nearLeft=side==="lock"?hingeOnRight:!hingeOnRight;
+      const kx=side==="center"?lx+(lw-kw)/2:(nearLeft?lx+5*sx:lx+lw-5*sx-kw), ky=leafTop+top*sy, bead=Math.max(1.5,0.75*sx);
+      g+=rvMetal("lk"+id,"#9aa19d")+`<rect x="${kx}" y="${ky}" width="${kw}" height="${kh}" fill="url(#mtlk${id})"/>`+rvGlass(kx+bead,ky+bead,kw-2*bead,kh-2*bead,"v"+id);
+      g+=rvLabel(kx+kw/2, kw>60?ky+kh/2+3:ky+kh+13, `VIS ${elIn(w)} x ${elIn(h)}`,"middle",kw>60?9:8); }
+    // louver from the door template
+    if(louver){ const [w,h]=louvSz, bottom=12, lw_=w*sx, lh_=h*sy, lxx=lx+(lw-lw_)/2, lyy=leafBot-(bottom+h)*sy;
+      g+=`<rect x="${lxx}" y="${lyy}" width="${lw_}" height="${lh_}" fill="#5d625f" stroke="#3a3d3b" stroke-width="1"/>`;
+      for(let yy=lyy+2; yy<lyy+lh_-2; yy+=Math.max(3,px(1.1))) g+=`<rect x="${lxx+1.5}" y="${yy}" width="${lw_-3}" height="${Math.max(1.4,px(0.55))}" fill="#9aa09d"/><rect x="${lxx+1.5}" y="${yy}" width="${lw_-3}" height="0.7" fill="#fff" opacity="0.5"/>`;
+      g+=rvLabel(lxx+lw_/2,lyy-4,`LOUVER ${elIn(w)} x ${elIn(h)}`,"middle",8)+rvLabel(lxx+lw_/2,lyy+lh_+12,`${elIn(bottom)} from bottom`,"middle",8); }
+    // kick plate
+    if(hw.kick){ const kh_=10*sy, inset=(pair?0.5:1)*sx; g+=rvMetal("kp"+id,"#c9ccce")+`<rect x="${lx+inset}" y="${leafBot-kh_}" width="${lw-2*inset}" height="${kh_}" fill="url(#mtkp${id})" stroke="#8d9193" stroke-width="0.6"/>`; }
+    // hinges: Pioneer standard spacing (5" head to top of first hinge, bottom hinge 10" up)
+    const hx=hingeOnRight?lx+lw-1:lx-3; g+=rvMetal("hg","#b9bcbd");
+    if(hw.cont) g+=`<rect x="${hx}" y="${leafTop+2}" width="4" height="${lh-4}" fill="url(#mthg)"/>`;
+    else { const n=hw.perLeaf, top=5, bot=fh-10-4.5; for(let k=0;k<n;k++){ const hy=n===1?top:top+(bot-top)*k/(n-1); g+=`<rect x="${hx}" y="${doorY+px(hy)}" width="4" height="${Math.max(6,px(4.5))}" rx="1.5" fill="url(#mthg)" stroke="#7d8182" stroke-width="0.4"/>`; } }
+    // lockset / exit device at the Pioneer strike height
+    const ly=doorY+px(40.3125); g+=rvMetal("hw","#c3c6c7");
+    const dev=active?hw.device:(hw.devBoth?hw.device:null), lockX=hingeOnRight?lx+2.75*sx:lx+lw-2.75*sx;
+    if(dev==="exit"){ const bx=lx+3*sx, bw=lw-6*sx;
+      g+=`<rect x="${bx}" y="${ly-px(1.6)}" width="${bw}" height="${px(3.2)}" rx="${px(0.8)}" fill="url(#mthw)" stroke="#8a8e90" stroke-width="0.6"/><rect x="${hingeOnRight?bx:bx+bw-px(9)}" y="${ly-px(2.4)}" width="${px(9)}" height="${px(4.8)}" rx="${px(1)}" fill="url(#mthw)" stroke="#8a8e90" stroke-width="0.6"/>`;
+      if(hw.vrod){ const rx=hingeOnRight?lx+px(2):lx+lw-px(2); g+=`<rect x="${rx-1}" y="${leafTop+3}" width="2.2" height="${lh-6}" fill="url(#mthw)"/>`; } }
+    else if(dev==="lever"||dev==="mortise"){
+      if(dev==="mortise") g+=`<rect x="${lockX-px(1.1)}" y="${ly-px(4)}" width="${px(2.2)}" height="${px(8)}" rx="${px(0.5)}" fill="url(#mthw)" stroke="#8a8e90" stroke-width="0.5"/>`;
+      const dir=hingeOnRight?1:-1; g+=`<circle cx="${lockX}" cy="${ly}" r="${px(1.3)}" fill="url(#mthw)" stroke="#8a8e90" stroke-width="0.6"/><rect x="${dir>0?lockX:lockX-px(4.8)}" y="${ly-px(0.45)}" width="${px(4.8)}" height="${px(0.9)}" rx="${px(0.45)}" fill="url(#mthw)" stroke="#8a8e90" stroke-width="0.5"/>`; }
+    else if(hw.pull && active){ const px_=hingeOnRight?lx+px(3):lx+lw-px(5); g+=`<rect x="${px_}" y="${ly-px(6)}" width="${px(2)}" height="${px(12)}" rx="${px(1)}" fill="url(#mthw)" stroke="#8a8e90" stroke-width="0.5"/>`; }
+    // closer on the leaf top, hinge side
+    if(hw.closer && (active || hw.closer>=2)){ const cw=px(11), cx=hingeOnRight?lx+lw-px(3)-cw:lx+px(3);
+      g+=`<rect x="${cx}" y="${leafTop+px(1.2)}" width="${cw}" height="${px(2.6)}" rx="${px(0.6)}" fill="url(#mthw)" stroke="#8a8e90" stroke-width="0.5"/><line x1="${hingeOnRight?cx:cx+cw}" y1="${leafTop+px(2.4)}" x2="${hingeOnRight?cx-px(8):cx+cw+px(8)}" y2="${doorY-px(0.6)}" stroke="#8a8e90" stroke-width="${px(0.7)}" stroke-linecap="round"/>`; }
+    lx+=lw+(pair?gap:0);
+  });
+  if(pair && (hw.astragal||hw.mullion)){ const mx=doorX+gap+totalLeafPx*leafWs[order[0]]/nomTotal; g+=`<rect x="${mx-(hw.mullion?px(1):1.5)}" y="${leafTop}" width="${hw.mullion?px(2):3}" height="${leafBot-leafTop}" fill="${hw.mullion?fcol:"#7d8480"}"/>`; }
+  if(hw.thr) g+=rvMetal("th","#c7cacb")+`<rect x="${doorX-px(1)}" y="${floorY-px(0.5)}" width="${doorW+px(2)}" height="${Math.max(3,px(0.5))+2}" fill="url(#mtth)" stroke="#8d9193" stroke-width="0.5"/>`;
+  // dimensions
+  g+=rvDimH(X0,X0+px(outW),Y0-40,`${elIn(outW)} overall (${elIn(faceJ)} faces)`);
+  if(slL) g+=rvDimH(inX,inX+px(slL),Y0-16,`SL ${elIn(slL)}`);
+  g+=rvDimH(doorX,doorX+doorW,Y0-16,`${fmtSize(fw)} opening`);
+  if(slR){ const sx=doorX+doorW+px(mull); g+=rvDimH(sx,sx+px(slR),Y0-16,`SL ${elIn(slR)}`); }
+  const rx1=X0+px(outW)+22, rx2=X0+px(outW)+48;
+  g+=rvDimV(rx1,Y0,floorY,`${elIn(outH)} overall`);
+  if(faceH===4) g+=rvLabel(X0+px(outW)/2,Y0+px(faceH)/2+4,'4" HEAD',"middle",8);
+  if(hasTr) g+=rvDimV(rx2,inY,inY+px(trH),`transom ${elIn(trH)}`);
+  g+=rvDimV(X0-20,doorY,doorY+doorH,`${fmtSize(fh)} opening`);
+  g+=rvDimV(hasTr?rx2+26:rx2,leafTop,leafBot,`door ${elIn(leafH)}`);
+  // caption
+  const cap=(y,t,size,bold,col)=>`<text x="20" y="${y}" font-family="Arial, Helvetica, sans-serif" font-size="${size}"${bold?' font-weight="bold"':""} fill="${col||"#1c2a1c"}">${esc(t)}</text>`;
+  const mfr=c=>{ const m=S.mfrs.find(x=>x.code===c); return m?m.name:(c||""); };
+  const rating=r["FR FIRE RATING"]||r["DR FIRE RATING"];
+  let cy=floorY+28;
+  g+=cap(cy,`${r.MARK?"Mark "+r.MARK+" - ":""}${pair?(mode==="DE"?"Double egress":"Pair"):"Single"} ${fmtSize(fw)} x ${fmtSize(fh)}${slSide?" w/ sidelite"+(slSide==="B"?"s":""):""}${hasTr?" + transom":""}${rating?" - "+rating+" label":""}`,15,true); cy+=19;
+  g+=cap(cy,`Frame: ${[mfr(r["FR MFGR"]),r["FR TYPE"],r["FR SERIES"],r["FR GAUGE"]?r["FR GAUGE"]+" ga":"",r["FR MATL"]].filter(Boolean).join(" ")}${r["JAMB DEPTH"]?"  |  jamb "+r["JAMB DEPTH"]+'"':""}${r["LEFT JAMB ANCHOR"]?"  |  anchors "+r["LEFT JAMB ANCHOR"]:""}`.slice(0,96),12,true); cy+=17;
+  g+=cap(cy,`Door: ${[mfr(r["DR MFGR"]),r["DR SERIES"],r["DR GAUGE"]?r["DR GAUGE"]+" ga":"",r["DR CORE"]].filter(Boolean).join(" ")} - ${look.label}  |  template ${dt}  |  undercut ${elIn(under)}`.slice(0,100),12); cy+=16;
+  g+=cap(cy,`Hand ${hand}  |  heading ${r.HEADING||"-"}  |  frame template ${ft}`,12); cy+=16;
+  const hl=hw.has?hw.list.join(", "):"no hardware entered for this heading - showing 3 hinges and a lever";
+  for(let k=0;k<2 && k*92<hl.length;k++){ g+=cap(cy,(k?"   ":"Hardware: ")+hl.slice(k*92,(k+1)*92)+((k+1)*92<hl.length&&k===1?"…":""),11); cy+=15; }
+  g+=cap(RV_H-12,"Shaded visualization with dimensions - colors and textures are approximate.",10,false,"#3f4d3c");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${RV_W}" height="${RV_H}" viewBox="0 0 ${RV_W} ${RV_H}">${g}</svg>`;
+}
+let V3_ID=null;
+function v3Rows(){ const ids=[...document.querySelectorAll("#tbody tr[data-id]")].map(t=>t.dataset.id); return ids.length?ids:P().rows.map(r=>r._id); }
+function open3D(id){
+  const ids=v3Rows(); if(!ids.length){ toast("Add an opening first."); return; }
+  V3_ID = id || (lastFocus&&ids.includes(lastFocus.id)?lastFocus.id:[...SEL].find(x=>ids.includes(x))||ids[0]);
+  $("v3Ov").hidden=false; draw3D();
+}
+function draw3D(){
+  const ids=v3Rows(), r=rowById(V3_ID), i=ids.indexOf(V3_ID);
+  $("v3T").textContent=`${r.MARK||"(no mark)"} · ${i+1} of ${ids.length}`;
+  const svg=renderOpening(r);
+  $("v3Body").innerHTML=svg||`<div class="note" style="padding:40px">Enter FR WIDTH and FR HEIGHT for this opening to see it.</div>`;
+}
+function step3D(d){ const ids=v3Rows(), i=ids.indexOf(V3_ID); V3_ID=ids[(i+d+ids.length)%ids.length]; draw3D(); }
+$("v3Btn").onclick=()=>open3D();
+$("v3Close").onclick=()=>{ $("v3Ov").hidden=true; };
+$("v3Prev").onclick=()=>step3D(-1); $("v3Next").onclick=()=>step3D(1);
+document.addEventListener("keydown",e=>{ if($("v3Ov").hidden) return; if(e.key==="ArrowRight") step3D(1); if(e.key==="ArrowLeft") step3D(-1); if(e.key==="Escape") $("v3Ov").hidden=true; });
+function printSvgs(svgs,title){
+  const w=window.open("","_blank"); if(!w){ toast("Allow pop-ups for this file to print."); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>@page{size:letter portrait;margin:0.4in}body{margin:0;font-family:Arial}div.pg{page-break-after:always;display:flex;justify-content:center}div.pg:last-child{page-break-after:auto}svg{width:7.5in;height:auto}</style></head><body>${svgs.map(s=>`<div class="pg">${s}</div>`).join("")}<script>window.onload=()=>{window.print()}<\/script></body></html>`);
+  w.document.close();
+}
+$("v3Print").onclick=()=>{ const s=renderOpening(rowById(V3_ID)); if(s) printSvgs([s],`${P().name} - ${rowById(V3_ID).MARK||""}`); };
+$("v3All").onclick=()=>{ const svgs=v3Rows().map(id=>renderOpening(rowById(id))).filter(Boolean); if(!svgs.length){ toast("No openings with sizes to print."); return; } printSvgs(svgs,`${P().name} - 3D elevations`); };
+
+/* ===== manufacturer codes ===== */
+function renderMfrs(){ $("mfrBody").innerHTML=S.mfrs.map((m,i)=>`<tr data-i="${i}"><td style="width:90px"><input data-m="code" value="${esc(m.code)}" aria-label="Code"></td><td><input data-m="name" value="${esc(m.name)}" aria-label="Name"></td><td style="width:120px"><select data-m="kind" aria-label="Makes">${["HM","WD","FRP/ALUM","OTHER"].map(k=>`<option${k===m.kind?" selected":""}>${k}</option>`).join("")}</select></td><td style="width:40px"><button type="button" class="x" data-rm aria-label="Remove">✕</button></td></tr>`).join(""); }
+$("mfrBtn").onclick=()=>{ renderMfrs(); $("mfrDlg").showModal(); };
+$("mfrBody").addEventListener("change",e=>{ const i=+e.target.closest("tr").dataset.i, k=e.target.dataset.m; if(!k) return; S.mfrs[i][k]=k==="code"?e.target.value.trim().toUpperCase():e.target.value.trim(); save(); });
+$("mfrBody").addEventListener("click",e=>{ if(!e.target.matches("[data-rm]")) return; S.mfrs.splice(+e.target.closest("tr").dataset.i,1); save(); renderMfrs(); });
+$("mfrAdd").onclick=()=>{ S.mfrs.push({code:"",name:"",kind:"HM"}); renderMfrs(); $("mfrBody").lastElementChild.querySelector("input").focus(); };
+$("mfrReset").onclick=()=>{ S.mfrs=STARTER_MFRS.slice(); save(); renderMfrs(); };
+$("mfrDone").onclick=()=>{ S.mfrs=S.mfrs.filter(m=>m.code); save(); $("mfrDlg").close(); render(); };
+
+function toast(m){ const t=$("toast"); t.textContent=m; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,2200); }
+
+buildLists(); renderProjects(); renderToggles(); render();
+</script>
+</body>
+</html>
